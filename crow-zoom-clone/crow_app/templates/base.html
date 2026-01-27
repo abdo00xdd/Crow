@@ -26,7 +26,7 @@
                     <a class="nav-link" href="#">meetings</a>
                     <a class="nav-link" href="{% url 'calendar' %}">Schedule</a>
                     <a class="nav-link" href="#" onclick="toggleChatbot()">AI-chat</a>
-                    <a class="nav-link" href="{% url 'settings' %}">profile</a>
+                    
                     <a class="nav-link" href="{% url 'settings' %}">settings</a>
                 </nav>
                 
@@ -117,6 +117,23 @@
         </div>
     </div>
 
+    {% if user.is_authenticated %}
+    <div class="user-menu">
+        <a href="{% url 'profile' %}" class="user-profile">
+            {% if user.profile.profile_picture %}
+                <img src="{{ user.profile.profile_picture.url }}" 
+                     alt="{{ user.username }}" 
+                     class="user-avatar">
+            {% else %}
+                <div class="user-avatar">
+                    {{ user.username|first|upper }}
+                </div>
+            {% endif %}
+            <span class="user-name">{{ user.username }}</span>
+        </a>
+    </div>
+{% endif %}
+
     <script>
         // Mobile menu toggle
         document.getElementById('mobileMenuBtn').addEventListener('click', function() {
@@ -177,3 +194,6 @@
     {% block extra_js %}{% endblock %}
 </body>
 </html>
+{% for room in rooms %}
+  <a href="{% url 'room_detail' room_id=room.id %}">{{ room.name }}</a>
+{% endfor %}

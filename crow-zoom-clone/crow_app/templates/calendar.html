@@ -331,26 +331,8 @@
                 <h3 class="today-title">Today</h3>
                 <div class="today-date" id="todayDate">05</div>
                 
-                <!-- Today's Meetings -->
-                <div class="meeting-list" id="todayMeetings">
-                    <div class="meeting-item">
-                        <div class="meeting-time">09:30 AM</div>
-                        <div class="meeting-title">Team Standup</div>
-                        <div class="meeting-details">Daily sync • 8 participants</div>
-                    </div>
-                    
-                    <div class="meeting-item">
-                        <div class="meeting-time">02:00 PM</div>
-                        <div class="meeting-title">Client Review</div>
-                        <div class="meeting-details">Project presentation • 12 participants</div>
-                    </div>
-                    
-                    <div class="meeting-item">
-                        <div class="meeting-time">04:30 PM</div>
-                        <div class="meeting-title">Planning Session</div>
-                        <div class="meeting-details">Q1 planning • 6 participants</div>
-                    </div>
-                </div>
+                <!-- Today's Meetings (populated dynamically) -->
+                <div class="meeting-list" id="todayMeetings"></div>
                 
                 <!-- Empty State (Hidden by default) -->
                 <div class="empty-state d-none" id="emptyMeetings">
@@ -366,35 +348,36 @@
             <div class="quick-schedule">
                 <h3 class="schedule-title">Schedule Meeting</h3>
                 
-                <form id="scheduleForm">
+                <form id="scheduleForm" method="post" action="{% url 'calendar' %}">
+                    {% csrf_token %}
                     <div class="form-group">
                         <label class="form-label">Meeting Title</label>
-                        <input type="text" class="form-control" placeholder="Team meeting, Client call..." required>
+                        <input name="title" type="text" class="form-control" placeholder="Team meeting, Client call..." required>
                     </div>
                     
                     <div class="form-group">
                         <label class="form-label">Date & Time</label>
-                        <input type="datetime-local" class="form-control" required>
+                        <input name="datetime" type="datetime-local" class="form-control" required>
                     </div>
                     
                     <div class="form-group">
                         <label class="form-label">Duration</label>
-                        <select class="form-control">
-                            <option>15 minutes</option>
-                            <option selected>30 minutes</option>
-                            <option>45 minutes</option>
-                            <option>1 hour</option>
-                            <option>2 hours</option>
+                        <select name="duration" class="form-control">
+                            <option value="15">15</option>
+                            <option value="30" selected>30</option>
+                            <option value="45">45</option>
+                            <option value="60">60</option>
+                            <option value="120">120</option>
                         </select>
                     </div>
                     
                     <div class="form-group">
                         <label class="form-label">Meeting Type</label>
-                        <select class="form-control">
-                            <option>Team Meeting</option>
-                            <option>Client Call</option>
-                            <option>One-on-One</option>
-                            <option>Webinar</option>
+                        <select name="meeting_type" class="form-control">
+                            <option value="team">Team Meeting</option>
+                            <option value="client">Client Call</option>
+                            <option value="personal">One-on-One</option>
+                            <option value="webinar">Webinar</option>
                         </select>
                     </div>
                     
@@ -429,27 +412,8 @@
     let currentDate = new Date();
     let selectedDate = new Date();
     
-    // Sample meetings data
-    const sampleMeetings = {
-        '2025-01-05': [
-            { time: '09:30', title: 'Team Standup', type: 'team' },
-            { time: '14:00', title: 'Client Review', type: 'client' },
-            { time: '16:30', title: 'Planning Session', type: 'team' }
-        ],
-        '2025-01-08': [
-            { time: '11:00', title: 'Product Demo', type: 'client' }
-        ],
-        '2025-01-12': [
-            { time: '13:00', title: 'Weekly Sync', type: 'team' }
-        ],
-        '2025-01-15': [
-            { time: '10:00', title: 'Budget Review', type: 'team' },
-            { time: '15:00', title: 'Training Session', type: 'personal' }
-        ],
-        '2025-01-20': [
-            { time: '09:00', title: 'All Hands', type: 'team' }
-        ]
-    };
+    // Meetings from backend (grouped by date)
+    const sampleMeetings = JSON.parse('{{ meetings_json|escapejs }}');
     
     // Initialize Calendar
     document.addEventListener('DOMContentLoaded', function() {
@@ -564,15 +528,34 @@
         // Check for meetings
         const dateString = selectedDate.toISOString().split('T')[0];
         const meetings = sampleMeetings[dateString];
-        
+
         if (meetings && meetings.length > 0) {
             todayMeetings.classList.remove('d-none');
             emptyMeetings.classList.add('d-none');
-            
-            // Update meeting list (simplified - in real app you'd update content)
+            // Build meeting list
+            todayMeetings.innerHTML = '';
+            meetings.forEach(m => {
+                const item = document.createElement('div');
+                item.className = 'meeting-item';
+                const time = document.createElement('div');
+                time.className = 'meeting-time';
+                // Format time as HH:MM or locale
+                time.textContent = m.time;
+                const title = document.createElement('div');
+                title.className = 'meeting-title';
+                title.textContent = m.title;
+                const details = document.createElement('div');
+                details.className = 'meeting-details';
+                details.textContent = `${m.room} • ${m.participants} participants`;
+                item.appendChild(time);
+                item.appendChild(title);
+                item.appendChild(details);
+                todayMeetings.appendChild(item);
+            });
         } else {
             todayMeetings.classList.add('d-none');
             emptyMeetings.classList.remove('d-none');
+            todayMeetings.innerHTML = '';
         }
     }
     

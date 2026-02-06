@@ -1,149 +1,105 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ user_class.name }} - Crow{% endblock %}
+{% block title %}{{ user_class.name }} | Crow{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <div class="bg-white p-6 rounded-lg shadow mb-6">
-            <div class="flex items-start justify-between">
-                <div>
-                    <div class="flex items-center gap-3 mb-2">
-                        <span class="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
-                            {{ user_class.code }}
-                        </span>
-                        {% if user_class.created_by == request.user %}
-                        <span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs">
-                            Team Manager
-                        </span>
-                        {% endif %}
-                    </div>
-                    <h1 class="text-3xl font-bold mb-2">{{ user_class.name }}</h1>
-                    <p class="text-gray-600">{{ user_class.description }}</p>
-                </div>
-                <a href="{% url 'manage_classes' %}" class="text-blue-600 hover:text-blue-800">
-                    ← Back to Teams
-                </a>
-            </div>
+<div class="container py-8 max-w-4xl mx-auto px-4">
 
-            <div class="mt-4 flex gap-4 text-sm text-gray-600">
-                <div>
-                    <span class="font-semibold">Manager:</span> {{ user_class.created_by.username }}
-                </div>
-                <div>
-                    <span class="font-semibold">Members:</span> {{ members.count }}
-                </div>
-                <div>
-                    <span class="font-semibold">Created:</span> {{ user_class.created_at|date:"M d, Y" }}
-                </div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Members List -->
-            <div class="lg:col-span-2">
-                <div class="bg-white p-6 rounded-lg shadow">
-                    <h2 class="text-2xl font-semibold mb-4">Team Members</h2>
-                    
-                    {% if members %}
-                    <div class="space-y-3">
-                        {% for membership in members %}
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center text-white font-semibold">
-                                    {{ membership.user.username|slice:":1"|upper }}
-                                </div>
-                                <div>
-                                    <div class="font-medium">{{ membership.user.username }}</div>
-                                    <div class="text-sm text-gray-500">
-                                        {% if membership.user.email %}{{ membership.user.email }}{% else %}No email{% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="px-3 py-1 text-xs font-semibold rounded-full
-                                    {% if membership.role == 'teacher' %}bg-purple-100 text-purple-800
-                                    {% elif membership.role == 'assistant' %}bg-yellow-100 text-yellow-800
-                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                    {% if membership.role == 'teacher' %}Manager
-                                    {% elif membership.role == 'student' %}Member
-                                    {% elif membership.role == 'assistant' %}Lead
-                                    {% else %}{{ membership.role|title }}{% endif %}
-                                </span>
-                                <span class="text-xs text-gray-500">
-                                    Joined {{ membership.date_joined|date:"M d" }}
-                                </span>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="text-center py-8">
-                        <div class="text-6xl mb-4">👥</div>
-                        <p class="text-gray-500">No members yet</p>
-                    </div>
+    <!-- Header -->
+    <div class="mb-10">
+        <a href="{% url 'manage_classes' %}" class="text-gray-500 hover:text-black mb-4 inline-block">
+            ← Back to Teams
+        </a>
+        <div class="flex items-start justify-between">
+            <div>
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-sm font-medium bg-gray-100 px-3 py-1 rounded">
+                        {{ user_class.code }}
+                    </span>
+                    {% if user_class.created_by == request.user %}
+                    <span class="text-xs text-gray-500">(Owner)</span>
                     {% endif %}
                 </div>
-            </div>
-
-            <!-- Sidebar -->
-            <div class="space-y-6">
-                <!-- Team Code Card -->
-                <div class="bg-white p-6 rounded-lg shadow">
-                    <h3 class="text-lg font-semibold mb-3">Team Join Code</h3>
-                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg text-center border-2 border-blue-200">
-                        <div class="text-3xl font-bold text-blue-900 mb-1">{{ user_class.code }}</div>
-                        <p class="text-sm text-blue-700">Share this code to invite members</p>
-                    </div>
-                </div>
-
-                <!-- Recent Meetings -->
-                <div class="bg-white p-6 rounded-lg shadow">
-                    <h3 class="text-lg font-semibold mb-3">Team Meetings</h3>
-                    {% if meetings %}
-                        <div class="space-y-2">
-                            {% for meeting in meetings %}
-                            <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                                <div class="font-medium text-sm">{{ meeting.title }}</div>
-                                <div class="text-xs text-gray-500">
-                                    {{ meeting.scheduled_time|date:"M d, g:i A" }}
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="text-center py-4">
-                            <p class="text-gray-500 text-sm">No team meetings scheduled</p>
-                        </div>
-                    {% endif %}
-                </div>
-
-                <!-- Actions -->
-                {% if user_class.created_by == request.user %}
-                <div class="bg-white p-6 rounded-lg shadow">
-                    <h3 class="text-lg font-semibold mb-3">Manager Actions</h3>
-                    <div class="space-y-2">
-                        <a href="{% url 'calendar' %}" 
-                           class="block w-full bg-blue-600 text-white text-center px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-                            <i class="fas fa-calendar-plus mr-2"></i>Schedule Team Meeting
-                        </a>
-                        <button class="block w-full bg-gray-100 text-gray-700 text-center px-4 py-2 rounded-lg hover:bg-gray-200 transition">
-                            <i class="fas fa-cog mr-2"></i>Team Settings
-                        </button>
-                    </div>
-                </div>
-                {% else %}
-                <div class="bg-white p-6 rounded-lg shadow">
-                    <h3 class="text-lg font-semibold mb-3">Member Actions</h3>
-                    <a href="{% url 'calendar' %}" 
-                       class="block w-full bg-blue-600 text-white text-center px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-                        <i class="fas fa-calendar mr-2"></i>View Team Meetings
-                    </a>
-                </div>
+                <h1 class="text-3xl font-light">{{ user_class.name }}</h1>
+                {% if user_class.description %}
+                <p class="text-gray-600 mt-2 max-w-2xl">{{ user_class.description }}</p>
                 {% endif %}
             </div>
         </div>
     </div>
+
+    <div class="grid md:grid-cols-3 gap-8">
+        <!-- Members List -->
+        <div class="md:col-span-2">
+            <h2 class="text-lg font-medium mb-4">Members</h2>
+            
+            {% if members %}
+            <div class="space-y-3">
+                {% for membership in members %}
+                <div class="flex items-center justify-between py-3 border-b">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-sm">
+                            {{ membership.user.username|first|upper }}
+                        </div>
+                        <div>
+                            <div class="font-medium">{{ membership.user.username }}</div>
+                            <div class="text-sm text-gray-500">
+                                {% if membership.user.email %}{{ membership.user.email }}{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        {{ membership.role|title }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-12 text-gray-400">
+                <div class="text-4xl mb-2">👤</div>
+                <p>No members yet</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Join Code -->
+            <div class="border rounded-lg p-4">
+                <h3 class="text-sm font-medium mb-2">Join Code</h3>
+                <div class="text-2xl font-mono font-bold tracking-wide">{{ user_class.code }}</div>
+                <p class="text-sm text-gray-500 mt-1">Share to invite</p>
+            </div>
+
+            <!-- Actions -->
+            <div class="space-y-2">
+                <a href="{% url 'calendar' %}" 
+                   class="block w-full text-center border border-black text-black py-2.5 rounded hover:bg-black hover:text-white transition">
+                    Schedule Meeting
+                </a>
+                
+                {% if user_class.created_by == request.user %}
+                <button onclick="copyCode('{{ user_class.code }}')"
+                   class="block w-full text-center border border-gray-300 text-gray-700 py-2.5 rounded hover:bg-gray-50 transition">
+                    Copy Code
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- Info -->
+            <div class="text-sm text-gray-500 space-y-1">
+                <div>Created {{ user_class.created_at|date:"M d, Y" }}</div>
+                <div>By {{ user_class.created_by.username }}</div>
+                <div>{{ members.count }} member{{ members.count|pluralize }}</div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+function copyCode(code) {
+    navigator.clipboard.writeText(code);
+    alert('Code copied: ' + code);
+}
+</script>
 {% endblock %}

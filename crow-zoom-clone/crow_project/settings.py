@@ -15,10 +15,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',  # Moved up - should be before your apps
     'crow_app',
     'crispy_forms',
     'crispy_bootstrap5',
-    'channels',
+    # REMOVED the duplicate 'crow_app' that was here
 ]
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
@@ -53,7 +54,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'crow_project.wsgi.application'
-ASGI_APPLICATION = 'crow_project.asgi.application'
+ASGI_APPLICATION = 'crow_project.asgi.application'  # Fixed from 'your_project'
 
 DATABASES = {
     'default': {
@@ -87,6 +88,11 @@ LOGOUT_REDIRECT_URL = 'home'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# In production, you'd use:
-# DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-# AWS settings...
+# Channels configuration
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',  # Changed for Windows compatibility
+    },
+}
+
+# REMOVED the duplicate ASGI_APPLICATION line that was at the bottom

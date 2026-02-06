@@ -1,3 +1,4 @@
+# FIXED views.py - Copy this to replace your current views.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login, authenticate, logout as auth_logout
@@ -7,15 +8,85 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from .models import Room, Meeting, Contact, UserProfile
+from django.db import IntegrityError  # FIX: Added missing import
+from django.db.models import Q  # FIX: Added for query filtering
+from .models import ClassMembership, Room, Meeting, Contact, UserClass, UserProfile, MeetingRoom
 import json
+import requests
+from django.views.decorators.csrf import csrf_exempt
+
+
+# ===== AI CHATBOT VIEWS =====
+@login_required
+def ai_chatbot(request):
+    """Main AI chatbot page"""
+    return render(request, 'ai_chatbot.html')
+
+@csrf_exempt
+@login_required
+def ai_chat_api(request):
+    """API endpoint to handle AI chat requests"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            user_message = data.get('message', '').strip()
+            
+            if not user_message:
+                return JsonResponse({'error': 'Message is required'}, status=400)
+            
+            # Get AI response
+            ai_response = get_ai_response(user_message, request.user)
+            
+            return JsonResponse({
+                'response': ai_response,
+                'user_message': user_message
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+def get_ai_response(message, user):
+    """Get response from AI service"""
+    message_lower = message.lower()
+    
+    # Meeting-related responses
+    if any(word in message_lower for word in ['meeting', 'schedule', 'calendar']):
+        return "I can help you with meetings! You can schedule meetings from the Calendar page, or create instant rooms from the dashboard."
+    
+    elif any(word in message_lower for word in ['video', 'camera', 'microphone']):
+        return "For video settings, check your browser permissions. Make sure your camera and microphone are allowed for Crow."
+    
+    elif any(word in message_lower for word in ['class', 'join class', 'create class']):
+        return "You can create or join classes from the Classes page. Classes help organize meetings by groups!"
+    
+    elif any(word in message_lower for word in ['contact', 'friend', 'invite']):
+        return "You can add contacts from the Contacts page. Once added, you can invite them to meetings directly."
+    
+    elif any(word in message_lower for word in ['hello', 'hi', 'hey']):
+        return f"Hello {user.username}! 👋 I'm Crow's AI assistant. How can I help you today?"
+    
+    elif any(word in message_lower for word in ['help', 'support']):
+        return "I can help you with: scheduling meetings, technical issues, contact management, classes, and using Crow features."
+    
+    elif any(word in message_lower for word in ['thank', 'thanks']):
+        return "You're welcome! Let me know if you need anything else. 🎯"
+    
+    elif any(word in message_lower for word in ['bye', 'goodbye']):
+        return "Goodbye! Have a great day! 👋"
+    
+    # Default response
+    return f"I understand you're asking about: '{message}'. I'm here to help with video meetings, scheduling, contacts, classes, and technical support. Could you tell me more?"
 
 # ===== HOME VIEW =====
 def home(request):
     if not request.user.is_authenticated:
         return redirect('login')
     
-    # Get user profile if exists
+    # Get user profile
     profile = None
     if hasattr(request.user, 'profile'):
         profile = request.user.profile
@@ -37,17 +108,17 @@ def home(request):
     return render(request, 'home.html', context)
 
 
-# Helper: create a meeting for a room and add participants
+# ===== HELPER FUNCTIONS =====
 def _create_meeting(room, host, title=None, scheduled_time=None, duration=None, participants=None):
+    """Helper to create a meeting"""
     if title is None:
         title = f"Meeting - {room.name}"
     if scheduled_time is None:
         scheduled_time = timezone.now()
     if duration is None:
-        # try to use host profile preference
         try:
             duration = host.profile.default_meeting_duration
-        except Exception:
+        except:
             duration = 60
 
     meeting = Meeting.objects.create(
@@ -56,13 +127,12 @@ def _create_meeting(room, host, title=None, scheduled_time=None, duration=None, 
         scheduled_time=scheduled_time,
         duration=duration,
     )
-    # add host and any provided participants
     meeting.participants.add(host)
     if participants:
         for p in participants:
             try:
                 meeting.participants.add(p)
-            except Exception:
+            except:
                 pass
     return meeting
 
@@ -105,11 +175,9 @@ def logout_view(request):
 # ===== PROFILE & SETTINGS =====
 @login_required
 def settings_view(request):
-    # Get or create user profile
     profile, created = UserProfile.objects.get_or_create(user=request.user)
 
     if request.method == 'POST':
-        # Persist only simplified fields: email, bio, profile picture, and join/mute defaults
         email = request.POST.get('email', '').strip()
         bio = request.POST.get('bio', '').strip()
         default_join_with_video = True if request.POST.get('default_join_with_video') else False
@@ -129,13 +197,10 @@ def settings_view(request):
         profile.save()
 
         messages.success(request, 'Settings updated successfully!')
-
         return redirect('settings')
 
     return render(request, 'settings.html', {'profile': profile})
 
-
-# Simple profile view (URL references this)
 @login_required
 def profile_view(request):
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
@@ -144,198 +209,147 @@ def profile_view(request):
 # ===== MEETING & ROOM VIEWS =====
 @login_required
 def create_room(request):
+    """Create a new room"""
     if request.method == 'POST':
-        name = request.POST.get('room_name')
+        name = request.POST.get('name')
         room_type = request.POST.get('room_type', 'public')
-        password = request.POST.get('room_password', '')
+        password = request.POST.get('password')
+        
+        if not name:
+            messages.error(request, 'Room name is required')
+            return redirect('create_room')
+        
         room = Room.objects.create(
             name=name,
             host=request.user,
             room_type=room_type,
-            password=password if password else None
+            password=password if room_type == 'private' else None
         )
-
-        # Create an immediate meeting for this room so Start/Schedule behave similarly
-        meeting_title = request.POST.get('meeting_title') or f"Instant: {name} - {request.user.username}"
-        meeting = _create_meeting(
-            room=room,
-            host=request.user,
-            title=meeting_title,
-            scheduled_time=timezone.now(),
-            duration=request.POST.get('duration') and int(request.POST.get('duration')) or None,
-        )
-
-        messages.success(request, f'Room "{name}" created and meeting started.')
+        
+        # Create instant meeting
+        _create_meeting(room=room, host=request.user)
+        
+        messages.success(request, f'Room "{name}" created successfully!')
         return redirect('room_detail', room_id=room.id)
+    
     return render(request, 'create_room.html')
 
 @login_required
 def room_detail(request, room_id):
+    """View room details"""
     room = get_object_or_404(Room, id=room_id)
-    # Handle delete action (only host)
-    if request.method == 'POST' and request.POST.get('delete_room'):
-        if request.user != room.host:
-            messages.error(request, 'Only the room host can delete this room.')
-            return redirect('room_detail', room_id=room.id)
-        room.delete()
-        messages.success(request, f'Room "{room.name}" deleted.')
-        return redirect('home')
-
-    # Handle join action: create an instant Meeting and add participant
-    if request.method == 'POST' and request.POST.get('join_room'):
-        # create a short meeting and add the user as participant
-        meeting = Meeting.objects.create(
-            title=f"Instant: {room.name} - {request.user.username}",
-            room=room,
-            scheduled_time=timezone.now(),
-            duration=60,
-        )
-        meeting.participants.add(request.user)
-        messages.success(request, 'You joined the room.')
-        return redirect('room_detail', room_id=room.id)
-
+    
     # Check password for private rooms
-    if room.room_type == 'private' and room.password:
-        access_key = f'room_access_{room.id}'
-
-        # Already granted in session
-        if not request.session.get(access_key):
-            if request.method == 'POST' and request.POST.get('password'):
-                entered_password = request.POST.get('password')
-                if entered_password == room.password:
-                    request.session[access_key] = True
-                else:
-                    messages.error(request, 'Incorrect password')
-                    return render(request, 'room.html', {'room': room, 'require_password': True})
-            else:
-                return render(request, 'room.html', {'room': room, 'require_password': True})
-
-    # Gather room history (meetings) and members
-    history_qs = room.meetings.order_by('-scheduled_time').all()
-    members_qs = User.objects.filter(meeting__room=room).distinct()
-
-    # Paginate history and members
-    history_page_num = request.GET.get('history_page', 1)
-    members_page_num = request.GET.get('members_page', 1)
-
-    history_paginator = Paginator(history_qs, 5)
-    members_paginator = Paginator(members_qs, 10)
-
-    try:
-        history = history_paginator.page(history_page_num)
-    except (PageNotAnInteger, EmptyPage):
-        history = history_paginator.page(1)
-
-    try:
-        members = members_paginator.page(members_page_num)
-    except (PageNotAnInteger, EmptyPage):
-        members = members_paginator.page(1)
-    is_host = request.user == room.host
-
+    if room.room_type == 'private' and room.host != request.user:
+        if request.method == 'POST':
+            password = request.POST.get('password')
+            if password != room.password:
+                messages.error(request, 'Incorrect password')
+                return redirect('home')
+        else:
+            return render(request, 'room_password.html', {'room': room})
+    
+    meetings = Meeting.objects.filter(room=room).order_by('-scheduled_time')
+    
     context = {
         'room': room,
-        'history': history,
-        'members': members,
-        'is_host': is_host,
+        'meetings': meetings,
     }
-
     return render(request, 'room.html', context)
 
-# ===== CALENDAR & CONTACTS =====
 @login_required
 def calendar_view(request):
-    # If scheduling form submitted, create Meeting server-side
+    """Calendar view for scheduling meetings"""
+    user_classes = ClassMembership.objects.filter(user=request.user).select_related('user_class')
+    
     if request.method == 'POST':
-        title = request.POST.get('title') or 'Scheduled Meeting'
-        datetime_str = request.POST.get('datetime')
-        duration = request.POST.get('duration') or '30'
-        meeting_type = request.POST.get('meeting_type', 'team')
-
-        # parse datetime-local value (YYYY-MM-DDTHH:MM)
-        from django.utils.dateparse import parse_datetime
-        scheduled = None
-        if datetime_str:
-            # parse and ensure timezone aware
-            scheduled = parse_datetime(datetime_str)
-            if scheduled is not None and timezone.is_naive(scheduled):
-                scheduled = timezone.make_aware(scheduled, timezone.get_current_timezone())
-
-        # Create or reuse a personal room for the user
-        room_name = f"{request.user.username} - Personal"
-        room, _ = Room.objects.get_or_create(host=request.user, name=room_name, defaults={'room_type': 'private'})
-
-        # Create meeting only if scheduled datetime parsed
-        if scheduled:
+        title = request.POST.get('title')
+        room_id = request.POST.get('room_id')
+        scheduled_time = request.POST.get('scheduled_time')
+        duration = request.POST.get('duration', 60)
+        restrict_to_classes = request.POST.get('restrict_to_classes') == 'on'
+        selected_class_ids = request.POST.getlist('allowed_classes')
+        
+        if not title or not scheduled_time:
+            messages.error(request, 'Title and scheduled time are required')
+            return redirect('calendar')
+        
+        try:
+            # Get or create room
+            if room_id:
+                room = Room.objects.get(id=room_id, host=request.user)
+            else:
+                room = Room.objects.create(
+                    name=f"{title} - Room",
+                    host=request.user,
+                    room_type='public'
+                )
+            
+            # Create meeting
             meeting = Meeting.objects.create(
                 title=title,
                 room=room,
-                scheduled_time=scheduled,
-                duration=int(duration)
+                scheduled_time=scheduled_time,
+                duration=int(duration),
+                restrict_to_classes=restrict_to_classes
             )
             meeting.participants.add(request.user)
-            messages.success(request, f'Meeting "{title}" scheduled for {scheduled.strftime("%Y-%m-%d %H:%M")}')
-        else:
-            messages.error(request, 'Invalid date/time for meeting.')
-
-        return redirect('calendar')
-
-    meetings = Meeting.objects.filter(participants=request.user).order_by('scheduled_time')
-
-    # Group meetings by date for the calendar frontend
-    meetings_by_date = {}
-    for m in meetings:
-        date_key = m.scheduled_time.date().isoformat()
-        meetings_by_date.setdefault(date_key, []).append({
-            'id': m.id,
-            'time': m.scheduled_time.strftime('%H:%M'),
-            'title': m.title,
-            'type': 'team',
-            'participants': m.participants.count(),
-            'room': m.room.name,
-        })
-
-    meetings_json = json.dumps(meetings_by_date)
-    return render(request, 'calendar.html', {'meetings': meetings, 'meetings_json': meetings_json})
+            
+            # Add allowed classes
+            if restrict_to_classes and selected_class_ids:
+                for class_id in selected_class_ids:
+                    try:
+                        user_class = UserClass.objects.get(id=class_id)
+                        meeting.allowed_classes.add(user_class)
+                    except:
+                        pass
+            
+            messages.success(request, 'Meeting scheduled successfully!')
+            return redirect('calendar')
+            
+        except Exception as e:
+            messages.error(request, f'Error scheduling meeting: {str(e)}')
+            return redirect('calendar')
+    
+    meetings = Meeting.objects.filter(
+        participants=request.user,
+        scheduled_time__gte=timezone.now()
+    ).order_by('scheduled_time')
+    
+    context = {
+        'meetings': meetings,
+        'user_classes': user_classes,
+    }
+    return render(request, 'calendar.html', context)
 
 @login_required
 def contacts_view(request):
-    contacts = Contact.objects.filter(user=request.user)
-    return render(request, 'contacts.html', {'contacts': contacts})
-
-# ===== AI CHATBOT =====
-@login_required
-def ai_chatbot(request):
+    """View and manage contacts"""
     if request.method == 'POST':
+        contact_username = request.POST.get('contact_username')
+        
         try:
-            data = json.loads(request.body)
-            user_message = data.get('message', '')
+            contact_user = User.objects.get(username=contact_username)
             
-            # Simple AI responses
-            responses = {
-                'hello': 'Hello! How can I help with your meeting today?',
-                'hi': 'Hi there! Ready for your next video call?',
-                'schedule': 'You can schedule meetings from the Calendar page.',
-                'create room': 'Click the "Create Room" button to start a new video room.',
-                'help': 'I can help you schedule meetings, create rooms, and manage your video conferences.',
-                'meeting': 'To join a meeting, enter the meeting ID or click on an upcoming meeting.',
-                'settings': 'You can update your profile and preferences in the Settings page.',
-            }
-            
-            # Check for keywords
-            ai_response = "I'm your AI assistant. I can help you with scheduling meetings, creating rooms, and answering questions about Crow."
-            
-            for keyword, response in responses.items():
-                if keyword in user_message.lower():
-                    ai_response = response
-                    break
-
-            return JsonResponse({'response': ai_response})
-        except Exception:
-            return JsonResponse({'response': 'I encountered an error. Please try again.'}, status=500)
+            if contact_user == request.user:
+                messages.error(request, 'You cannot add yourself as a contact')
+            elif Contact.objects.filter(user=request.user, contact_user=contact_user).exists():
+                messages.warning(request, 'Contact already added')
+            else:
+                Contact.objects.create(user=request.user, contact_user=contact_user)
+                messages.success(request, f'Added {contact_username} to contacts')
+        except User.DoesNotExist:
+            messages.error(request, 'User not found')
+        
+        return redirect('contacts')
     
-    return JsonResponse({'error': 'Invalid request'}, status=400)
+    contacts = Contact.objects.filter(user=request.user).select_related('contact_user')
+    
+    context = {
+        'contacts': contacts,
+    }
+    return render(request, 'contacts.html', context)
 
-# ===== ADDITIONAL VIEWS =====
 @login_required
 def instant_room(request):
     """Create an instant meeting room"""
@@ -345,7 +359,169 @@ def instant_room(request):
         room_type='public'
     )
 
-    # create an immediate meeting and add the host
-    _create_meeting(room=room, host=request.user, title=f"Instant - {request.user.username}", scheduled_time=timezone.now())
+    _create_meeting(
+        room=room, 
+        host=request.user, 
+        title=f"Instant - {request.user.username}", 
+        scheduled_time=timezone.now()
+    )
 
     return redirect('room_detail', room_id=room.id)
+
+@login_required
+def webrtc_video_room(request, room_id):
+    """WebRTC Video Room"""
+    try:
+        # Try to get MeetingRoom (WebRTC room)
+        room = MeetingRoom.objects.get(id=room_id)
+    except:
+        try:
+            # Try to get regular Room
+            room = Room.objects.get(id=room_id)
+            # Convert to MeetingRoom
+            meeting_room, created = MeetingRoom.objects.get_or_create(
+                id=room_id,
+                defaults={
+                    'name': room.name,
+                    'host': room.host,
+                }
+            )
+            room = meeting_room
+        except:
+            # Create new MeetingRoom
+            room = MeetingRoom.objects.create(
+                id=room_id,
+                name=f"Video Room - {room_id}",
+                host=request.user
+            )
+    
+    # Add user to participants
+    if request.user not in room.participants.all():
+        room.participants.add(request.user)
+    
+    return render(request, 'video_room.html', {
+        'room': room,
+        'user': request.user
+    })
+
+# ===== CLASS MANAGEMENT VIEWS =====
+@login_required
+def manage_classes(request):
+    """View for managing user classes"""
+    # FIX: Correct Q object usage
+    user_classes = UserClass.objects.filter(
+        Q(created_by=request.user) | 
+        Q(members__user=request.user)
+    ).distinct()
+    
+    # Classes user is a member of
+    my_classes = UserClass.objects.filter(members__user=request.user)
+    
+    # Classes user created
+    created_classes = UserClass.objects.filter(created_by=request.user)
+    
+    context = {
+        'user_classes': user_classes,
+        'my_classes': my_classes,
+        'created_classes': created_classes,
+    }
+    return render(request, 'manage_classes.html', context)
+
+
+# views.py - UPDATE ONLY THESE FUNCTIONS (keep everything else the same)
+# Just change user-facing messages to say "team" instead of "class"
+
+@login_required
+def create_class(request):
+    """Create a new team/department"""
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        code = request.POST.get('code')
+        description = request.POST.get('description', '')
+        
+        if not name or not code:
+            messages.error(request, 'Team name and code are required')
+            return redirect('create_class')
+        
+        try:
+            # Create the team
+            user_class = UserClass.objects.create(
+                name=name,
+                code=code.upper(),
+                description=description,
+                created_by=request.user
+            )
+            
+            # Add creator as team manager
+            ClassMembership.objects.create(
+                user=request.user,
+                user_class=user_class,
+                role='teacher'  # Keep database value, just change UI display
+            )
+            
+            messages.success(request, f'Team "{name}" created successfully!')
+            return redirect('manage_classes')
+            
+        except IntegrityError:
+            messages.error(request, 'Team code already exists')
+            return redirect('create_class')
+    
+    return render(request, 'create_class.html')
+
+
+@login_required
+def join_class(request):
+    """Join a team using code"""
+    if request.method == 'POST':
+        class_code = request.POST.get('class_code', '').upper().strip()
+        
+        try:
+            user_class = UserClass.objects.get(code=class_code, is_active=True)
+            
+            # Check if already a member
+            if ClassMembership.objects.filter(user=request.user, user_class=user_class).exists():
+                messages.warning(request, f'You are already a member of {user_class.name}')
+            else:
+                # Join the team
+                ClassMembership.objects.create(
+                    user=request.user,
+                    user_class=user_class,
+                    role='student'  # Keep database value, just change UI display
+                )
+                messages.success(request, f'Successfully joined {user_class.name}!')
+            
+            return redirect('manage_classes')
+            
+        except UserClass.DoesNotExist:
+            messages.error(request, 'Team not found or is inactive')
+            return redirect('manage_classes')
+    
+    return redirect('manage_classes')
+
+
+@login_required
+def class_detail(request, class_id):
+    """View team details and members"""
+    user_class = get_object_or_404(UserClass, id=class_id)
+    
+    # Check if user is a member
+    is_member = ClassMembership.objects.filter(
+        user=request.user, 
+        user_class=user_class
+    ).exists()
+    
+    # Check if user has permission to view
+    if not is_member and user_class.created_by != request.user:
+        messages.error(request, 'You do not have permission to view this team')
+        return redirect('manage_classes')
+    
+    members = ClassMembership.objects.filter(user_class=user_class).select_related('user')
+    meetings = Meeting.objects.filter(allowed_classes=user_class).order_by('-scheduled_time')[:10]
+    
+    context = {
+        'user_class': user_class,
+        'is_member': is_member,
+        'members': members,
+        'meetings': meetings,
+    }
+    return render(request, 'class_detail.html', context)

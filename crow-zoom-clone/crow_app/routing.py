@@ -1,8 +1,7 @@
-from django.urls import re_path
+# crow_app/routing.py
+from django.urls import path
 from . import consumers
 
 websocket_urlpatterns = [
-    re_path(r'ws/room/(?P<room_id>\w+)/$', consumers.RoomConsumer.as_asgi()),
-    re_path(r'ws/chat/(?P<room_id>\w+)/$', consumers.ChatConsumer.as_asgi()),
-    re_path(r'ws/notifications/$', consumers.NotificationConsumer.as_asgi()),
+    path('ws/video/<str:room_id>/', consumers.VideoCallConsumer.as_asgi()),
 ]

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Room, Meeting, MeetingParticipant, Contact, UserProfile
+from .models import ClassMembership, Room, Meeting, MeetingParticipant, Contact, UserClass, UserProfile
 
 
 @admin.register(Room)
@@ -27,3 +27,13 @@ class ContactAdmin(admin.ModelAdmin):
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
 	list_display = ('user', 'phone_number', 'company', 'job_title')
+@admin.register(UserClass)
+class UserClassAdmin(admin.ModelAdmin):
+    list_display = ('code', 'name', 'created_by', 'created_at', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('code', 'name', 'description')
+
+@admin.register(ClassMembership)
+class ClassMembershipAdmin(admin.ModelAdmin):
+    list_display = ('user', 'user_class', 'role', 'date_joined')
+    list_filter = ('role', 'user_class')

@@ -1,0 +1,178 @@
+<!-- video_room.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Room: {{ room.name }}</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+</head>
+<body>
+    <h1>Room: {{ room.name }}</h1>
+    <div id="video-container">
+        <!-- Local video -->
+        <video id="local-video" autoplay muted playsinline></video>
+        <!-- Remote videos will be added here -->
+    </div>
+    
+    <button id="toggle-audio">Mute Audio</button>
+    <button id="toggle-video">Hide Video</button>
+    <button id="share-screen">Share Screen</button>
+    
+    <script>
+        const roomId = '{{ room.id }}';
+        const userId = 'user_{{ request.user.id }}_' + Math.random().toString(36).substr(2, 9);
+        let peers = {};
+        
+        // WebSocket connection for signaling
+        const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+        const wsPath = `${wsScheme}://${window.location.host}/ws/video/${roomId}/`;
+        const socket = new WebSocket(wsPath);
+        
+        // Get local video/audio
+        const localVideo = document.getElementById('local-video');
+        let localStream;
+        
+        // Initialize PeerJS
+        const peer = new Peer(userId);
+        
+        // Set up media
+        async function setupMedia() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+                localVideo.srcObject = localStream;
+                
+                // Notify others we've joined
+                socket.send(JSON.stringify({
+                    type: 'new_user',
+                    userId: userId
+                }));
+            } catch (err) {
+                console.error("Error accessing media devices:", err);
+            }
+        }
+        
+        // Handle incoming calls
+        peer.on('call', call => {
+            // Answer with local stream
+            call.answer(localStream);
+            
+            // Set up remote stream
+            call.on('stream', remoteStream => {
+                addVideoStream(call.peer, remoteStream);
+            });
+            
+            // Track peer
+            peers[call.peer] = call;
+        });
+        
+        // WebSocket message handling
+        socket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            
+            switch(data.type) {
+                case 'new_user':
+                    // Call the new user
+                    connectToNewUser(data.userId);
+                    break;
+                    
+                case 'signal':
+                    // Relay signaling data through PeerJS
+                    peer.signal(data.data);
+                    break;
+                    
+                case 'user_left':
+                    // Remove video
+                    removeVideoStream(data.userId);
+                    if (peers[data.userId]) {
+                        peers[data.userId].close();
+                        delete peers[data.userId];
+                    }
+                    break;
+            }
+        };
+        
+        // Connect to a new user
+        function connectToNewUser(newUserId) {
+            if (newUserId === userId) return;
+            
+            // Call the user
+            const call = peer.call(newUserId, localStream);
+            
+            // Handle their stream
+            call.on('stream', remoteStream => {
+                addVideoStream(newUserId, remoteStream);
+            });
+            
+            // Track peer
+            peers[newUserId] = call;
+        }
+        
+        // Add video element for remote stream
+        function addVideoStream(userId, stream) {
+            const videoContainer = document.getElementById('video-container');
+            const video = document.createElement('video');
+            video.id = `video-${userId}`;
+            video.autoplay = true;
+            video.playsinline = true;
+            video.srcObject = stream;
+            videoContainer.appendChild(video);
+        }
+        
+        function removeVideoStream(userId) {
+            const video = document.getElementById(`video-${userId}`);
+            if (video) video.remove();
+        }
+        
+        // PeerJS signaling
+        peer.on('signal', data => {
+            socket.send(JSON.stringify({
+                type: 'signal',
+                target: 'all',
+                data: data
+            }));
+        });
+        
+        // Initialize
+        setupMedia();
+        
+        // Button controls
+        document.getElementById('toggle-audio').onclick = () => {
+            const audioTrack = localStream.getAudioTracks()[0];
+            audioTrack.enabled = !audioTrack.enabled;
+        };
+        
+        document.getElementById('toggle-video').onclick = () => {
+            const videoTrack = localStream.getVideoTracks()[0];
+            videoTrack.enabled = !videoTrack.enabled;
+        };
+        
+        document.getElementById('share-screen').onclick = async () => {
+            try {
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true
+                });
+                // Switch video track for all peers
+                const videoTrack = screenStream.getVideoTracks()[0];
+                Object.values(peers).forEach(call => {
+                    const sender = call.peerConnection.getSenders()
+                        .find(s => s.track.kind === 'video');
+                    sender.replaceTrack(videoTrack);
+                });
+                
+                // Update local video
+                localVideo.srcObject = screenStream;
+            } catch (err) {
+                console.error("Error sharing screen:", err);
+            }
+        };
+        
+        // Clean up on leave
+        window.onbeforeunload = () => {
+            socket.close();
+            peer.destroy();
+        };
+    </script>
+</body>
+</html>

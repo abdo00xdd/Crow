@@ -396,60 +396,115 @@
     }
     
     // Send message function
-    async function sendMessage() {
-        const message = messageInput.value.trim();
+    // In ai_chatbot.html - Update the sendMessage function
+async function sendMessage() {
+    const message = messageInput.value.trim();
+    
+    if (!message) return;
+    
+    // Disable input and button
+    messageInput.disabled = true;
+    sendButton.disabled = true;
+    
+    // Add user message to chat
+    addMessage(message, 'user');
+    
+    // Clear input
+    messageInput.value = '';
+    messageInput.style.height = 'auto';
+    
+    // Show typing indicator
+    showTypingIndicator();
+    
+    try {
+        // Send to backend API
+        const response = await fetch('{% url "ai_chat_api" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ 
+                message: message,
+                // Optional: Add conversation history
+                history: getConversationHistory()
+            })
+        });
         
-        if (!message) return;
+        const data = await response.json();
         
-        // Disable input and button
-        messageInput.disabled = true;
-        sendButton.disabled = true;
+        // Hide typing indicator
+        hideTypingIndicator();
         
-        // Add user message to chat
-        addMessage(message, 'user');
-        
-        // Clear input
-        messageInput.value = '';
-        messageInput.style.height = 'auto';
-        
-        // Show typing indicator
-        showTypingIndicator();
-        
-        try {
-            // Send to backend API
-            const response = await fetch('{% url "ai_chat_api" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
-                },
-                body: JSON.stringify({ message: message })
-            });
+        if (response.ok) {
+            // Add AI response
+            addMessage(data.response, 'ai');
             
-            const data = await response.json();
-            
-            // Hide typing indicator
-            hideTypingIndicator();
-            
-            if (response.ok) {
-                // Add AI response
-                addMessage(data.response, 'ai');
-            } else {
-                // Show error
-                addMessage(`Sorry, I encountered an error: ${data.error || 'Unknown error'}`, 'ai');
+            // Show AI status
+            if (data.ai_status === 'offline') {
+                showNotification('AI service is offline, using fallback responses', 'warning');
             }
-            
-        } catch (error) {
-            hideTypingIndicator();
-            addMessage(`Sorry, I'm having trouble connecting. Please try again later.`, 'ai');
-            console.error('Chat error:', error);
-        } finally {
-            // Re-enable input and button
-            messageInput.disabled = false;
-            sendButton.disabled = false;
-            messageInput.focus();
+        } else {
+            // Show error with fallback response
+            addMessage(`Sorry, I encountered an error. ${data.error || 'Please try again.'}`, 'ai');
         }
+        
+    } catch (error) {
+        hideTypingIndicator();
+        addMessage(`Sorry, I'm having trouble connecting. Please check your internet connection and try again.`, 'ai');
+        console.error('Chat error:', error);
+    } finally {
+        // Re-enable input and button
+        messageInput.disabled = false;
+        sendButton.disabled = false;
+        messageInput.focus();
     }
+}
+
+// Helper function to get conversation history
+function getConversationHistory() {
+    const messages = chatMessages.querySelectorAll('.message');
+    const history = [];
+    
+    messages.forEach(msg => {
+        const isUser = msg.classList.contains('user-message');
+        const content = msg.querySelector('.message-content').textContent;
+        history.push({
+            role: isUser ? 'user' : 'assistant',
+            content: content
+        });
+    });
+    
+    // Limit history to last 10 messages to avoid token limits
+    return history.slice(-10);
+}
+
+// Add notification function
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        background: ${type === 'warning' ? '#fef3c7' : '#dbeafe'};
+        color: ${type === 'warning' ? '#92400e' : '#1e40af'};
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        z-index: 1000;
+        animation: slideIn 0.3s ease;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
     
     // Send suggestion
     function sendSuggestion(text) {

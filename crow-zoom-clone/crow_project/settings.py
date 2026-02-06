@@ -1,9 +1,11 @@
 import os
 from pathlib import Path
 
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-your-secret-key-here'
+SECRET_KEY = "your-django-secret-key-here"
+GEMINI_API_KEY = "AIzaSyB4yqsE1TNHuR4CdhKoEFqgQSBXZqIFBzc"
 
 DEBUG = True
 ALLOWED_HOSTS = []

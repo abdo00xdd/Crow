@@ -1,5 +1,3 @@
-# crow_app/urls.py - Add these URLs to your existing file
-
 from django.urls import path
 from . import views
 

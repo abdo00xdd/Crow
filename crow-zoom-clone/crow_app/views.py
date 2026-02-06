@@ -14,7 +14,7 @@ from .models import ClassMembership, Room, Meeting, Contact, UserClass, UserProf
 import json
 import requests
 from django.views.decorators.csrf import csrf_exempt
-
+from .ai_service import gemini_service, AI_SERVICE_AVAILABLE
 
 # ===== AI CHATBOT VIEWS =====
 @login_required
@@ -22,32 +22,63 @@ def ai_chatbot(request):
     """Main AI chatbot page"""
     return render(request, 'ai_chatbot.html')
 
+
+
 @csrf_exempt
 @login_required
 def ai_chat_api(request):
     """API endpoint to handle AI chat requests"""
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            user_message = data.get('message', '').strip()
-            
-            if not user_message:
-                return JsonResponse({'error': 'Message is required'}, status=400)
-            
-            # Get AI response
-            ai_response = get_ai_response(user_message, request.user)
-            
-            return JsonResponse({
-                'response': ai_response,
-                'user_message': user_message
-            })
-            
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON'}, status=400)
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
     
-    return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        data = json.loads(request.body)
+        user_message = data.get('message', '').strip()
+        
+        if not user_message:
+            return JsonResponse({'error': 'Message is required'}, status=400)
+        
+        # Check if AI service is available (using the imported variable)
+        if not AI_SERVICE_AVAILABLE:
+            return JsonResponse({
+                'response': "AI service is in fallback mode. Please configure a Gemini API key for full functionality.",
+                'user_message': user_message,
+                'ai_status': 'fallback'
+            })
+        
+        # Prepare user context
+        user_context = {
+            'username': request.user.username,
+        }
+        
+        # Get user's teams (classes)
+        try:
+            from .models import ClassMembership
+            user_teams = ClassMembership.objects.filter(user=request.user).select_related('user_class')
+            user_context['teams'] = [
+                {
+                    'name': membership.user_class.name,
+                    'code': membership.user_class.code,
+                    'role': membership.role
+                }
+                for membership in user_teams[:5]
+            ]
+        except Exception as e:
+            user_context['teams'] = []
+        
+        # Get AI response
+        ai_response = gemini_service.get_chat_response(user_message, user_context)
+        
+        return JsonResponse({
+            'response': ai_response,
+            'user_message': user_message,
+            'ai_status': 'online' if not gemini_service.use_fallback else 'fallback'
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON format'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 def get_ai_response(message, user):
     """Get response from AI service"""

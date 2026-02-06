@@ -1270,3 +1270,53 @@ input:checked + .toggle-slider:before {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
 }
+/* Add to style.css */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+}
+
+.notification-info {
+    background: var(--primary);
+    color: white;
+}
+
+.notification-warning {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fbbf24;
+}
+
+.notification-error {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #f87171;
+}

@@ -244,30 +244,6 @@
         border-color: var(--primary);
     }
     
-    /* Class Selection Styles */
-    .class-selection-container {
-        max-height: 200px;
-        overflow-y: auto;
-        border: 1px solid var(--border-gray);
-        padding: 10px;
-        border-radius: 4px;
-        background: var(--white);
-        margin-top: 5px;
-    }
-    
-    .class-checkbox {
-        margin-bottom: 8px;
-    }
-    
-    .class-checkbox:last-child {
-        margin-bottom: 0;
-    }
-    
-    .class-label {
-        font-size: 0.9rem;
-        cursor: pointer;
-    }
-    
     /* Empty State */
     .empty-state {
         text-align: center;
@@ -405,46 +381,6 @@
                         </select>
                     </div>
                     
-                    <!-- NEW: Class Restriction Section -->
-                    <div class="form-group">
-                        <div class="form-check mb-2">
-                            <input type="checkbox" name="restrict_to_classes" id="restrict_to_classes" 
-                                   class="form-check-input" onclick="toggleClassSelection()">
-                            <label class="form-label" for="restrict_to_classes">
-                                Restrict to specific classes
-                            </label>
-                            <small class="form-text text-muted d-block">
-                                Only members of selected classes can join this meeting
-                            </small>
-                        </div>
-                        
-                        <div id="classSelection" style="display: none;">
-                            <label class="form-label">Select Classes</label>
-                            <div class="class-selection-container">
-                                {% if user_classes %}
-                                    {% for user_class in user_classes %}
-                                        <div class="class-checkbox">
-                                            <input type="checkbox" name="allowed_classes" 
-                                                   value="{{ user_class.id }}" id="class_{{ user_class.id }}"
-                                                   class="form-check-input class-checkbox-input">
-                                            <label class="form-check-label class-label" for="class_{{ user_class.id }}">
-                                                <strong>{{ user_class.code }}</strong> - {{ user_class.name }}
-                                                {% if user_class.description %}
-                                                    <br><small class="text-muted">{{ user_class.description|truncatechars:50 }}</small>
-                                                {% endif %}
-                                            </label>
-                                        </div>
-                                    {% endfor %}
-                                {% else %}
-                                    <p class="text-muted">You haven't joined any classes yet.</p>
-                                    <a href="{% url 'manage_classes' %}" class="btn btn-sm btn-outline-primary mt-2">
-                                        Join a Class
-                                    </a>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                    
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="fas fa-calendar-plus me-2"></i>
                         Schedule Meeting
@@ -479,30 +415,10 @@
     // Meetings from backend (grouped by date)
     const sampleMeetings = JSON.parse('{{ meetings_json|escapejs }}');
     
-    // Function to toggle class selection visibility
-    function toggleClassSelection() {
-        const checkbox = document.getElementById('restrict_to_classes');
-        const classSelection = document.getElementById('classSelection');
-        if (checkbox.checked) {
-            classSelection.style.display = 'block';
-        } else {
-            classSelection.style.display = 'none';
-            // Uncheck all class checkboxes when restriction is disabled
-            const classCheckboxes = document.querySelectorAll('.class-checkbox-input');
-            classCheckboxes.forEach(cb => cb.checked = false);
-        }
-    }
-    
     // Initialize Calendar
     document.addEventListener('DOMContentLoaded', function() {
         renderCalendar();
         updateTodaySection();
-        
-        // Check if restrict_to_classes was previously checked (for form persistence)
-        const restrictCheckbox = document.getElementById('restrict_to_classes');
-        if (restrictCheckbox && restrictCheckbox.checked) {
-            toggleClassSelection();
-        }
     });
     
     // Render Calendar Grid
@@ -721,31 +637,19 @@
     
     // Quick Schedule Form
     document.getElementById('scheduleForm').addEventListener('submit', function(e) {
-        // Don't prevent default - let it submit to Django
-        // e.preventDefault(); // REMOVED this line
+        e.preventDefault();
         
-        // Optional: Add client-side validation
-        const restrictCheckbox = document.getElementById('restrict_to_classes');
-        if (restrictCheckbox && restrictCheckbox.checked) {
-            const classCheckboxes = document.querySelectorAll('.class-checkbox-input:checked');
-            if (classCheckboxes.length === 0) {
-                e.preventDefault();
-                alert('Please select at least one class when restricting access');
-                return;
-            }
+        // Get form values
+        const title = this.querySelector('input[type="text"]').value;
+        const datetime = this.querySelector('input[type="datetime-local"]').value;
+        
+        if (title && datetime) {
+            alert(`Meeting "${title}" scheduled successfully!`);
+            this.reset();
+            
+            // In a real app, you would send this to your backend
+            console.log('Meeting scheduled:', { title, datetime });
         }
-        
-        // Show loading indicator
-        const submitBtn = this.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Scheduling...';
-        submitBtn.disabled = true;
-        
-        // Re-enable button after 3 seconds if still on page
-        setTimeout(() => {
-            submitBtn.innerHTML = originalText;
-            submitBtn.disabled = false;
-        }, 3000);
     });
     
     // Open Quick Schedule with selected date

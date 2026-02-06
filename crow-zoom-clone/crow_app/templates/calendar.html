@@ -4,6 +4,26 @@
 
 {% block extra_css %}
 <style>
+    /* CSS Variables - Define fallbacks */
+    :root {
+        --primary: #2563eb;
+        --danger: #dc2626;
+        --dark: #1f2937;
+        --gray: #6b7280;
+        --gray-light: #9ca3af;
+        --light-gray: #f3f4f6;
+        --light: #f9fafb;
+        --border-gray: #e5e7eb;
+        --white: #ffffff;
+        --space-xs: 4px;
+        --space-sm: 8px;
+        --space-md: 16px;
+        --space-lg: 24px;
+        --space-xl: 32px;
+        --radius-md: 8px;
+        --radius-lg: 12px;
+    }
+
     /* Calendar Specific Styles */
     .calendar-container {
         background: var(--white);
@@ -37,6 +57,8 @@
         justify-content: center;
         cursor: pointer;
         transition: all 0.2s;
+        font-size: 16px;
+        color: var(--dark);
     }
     
     .calendar-nav-btn:hover {
@@ -120,6 +142,11 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        cursor: pointer;
+    }
+    
+    .calendar-event:hover {
+        opacity: 0.8;
     }
     
     .event-team {
@@ -177,6 +204,7 @@
         border-radius: var(--radius-md);
         background: var(--white);
         transition: all 0.2s;
+        position: relative;
     }
     
     .meeting-item:hover {
@@ -200,6 +228,27 @@
     .meeting-details {
         font-size: 0.8rem;
         color: var(--gray);
+    }
+
+    .meeting-actions {
+        margin-top: 8px;
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-delete {
+        background: var(--danger);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 6px;
+        border: none;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-delete:hover {
+        background: #b91c1c;
     }
     
     /* Quick Schedule Form */
@@ -231,7 +280,7 @@
     
     .form-control {
         width: 100%;
-        padding: 8px 12px;
+        padding: 10px 12px;
         border: 1px solid var(--border-gray);
         border-radius: var(--radius-md);
         font-size: 0.9rem;
@@ -242,6 +291,7 @@
     .form-control:focus {
         outline: none;
         border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
     
     /* Empty State */
@@ -257,8 +307,102 @@
         opacity: 0.3;
     }
     
+    /* Buttons */
+    .btn {
+        padding: 10px 16px;
+        border-radius: var(--radius-md);
+        border: none;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+    }
+    
+    .btn-primary {
+        background: var(--primary);
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background: #1d4ed8;
+    }
+    
+    .btn-secondary {
+        background: var(--light-gray);
+        color: var(--dark);
+    }
+    
+    .btn-secondary:hover {
+        background: var(--border-gray);
+    }
+    
+    .w-100 {
+        width: 100%;
+    }
+    
+    .d-none {
+        display: none !important;
+    }
+
+    /* Modal */
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal.show {
+        display: flex;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 500px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .modal-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+
+    .close-btn {
+        background: none;
+        border: none;
+        font-size: 28px;
+        cursor: pointer;
+        color: var(--gray);
+        line-height: 1;
+    }
+
+    .close-btn:hover {
+        color: var(--dark);
+    }
+    
     /* Responsive */
     @media (max-width: 992px) {
+        .grid {
+            grid-template-columns: 1fr !important;
+        }
+        
         .calendar-container {
             margin-bottom: var(--space-lg);
         }
@@ -282,11 +426,11 @@
 {% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container" style="max-width: 1400px; margin: 0 auto; padding: 24px;">
     <h1 class="mb-4" style="font-size: 2rem; font-weight: 700; color: var(--dark);">Schedule</h1>
-    <p class="text-gray mb-4" style="color: var(--gray); font-size: 1.1rem;">Plan and manage your video meetings</p>
+    <p style="color: var(--gray); font-size: 1.1rem; margin-bottom: 24px;">Plan and manage your video meetings</p>
     
-    <div class="grid" style="display: grid; grid-template-columns: 1fr 350px; gap: var(--space-xl);">
+    <div class="grid" style="display: grid; grid-template-columns: 1fr 350px; gap: 32px;">
         
         <!-- Main Calendar -->
         <div class="calendar-container">
@@ -328,19 +472,16 @@
         <div class="calendar-sidebar">
             <!-- Today's Date -->
             <div class="today-section">
-                <h3 class="today-title">Today</h3>
-                <div class="today-date" id="todayDate">05</div>
+                <h3 class="today-title">Selected Date</h3>
+                <div class="today-date" id="todayDate">{{ now.day }}</div>
                 
-                <!-- Today's Meetings (populated dynamically) -->
+                <!-- Today's Meetings -->
                 <div class="meeting-list" id="todayMeetings"></div>
                 
-                <!-- Empty State (Hidden by default) -->
-                <div class="empty-state d-none" id="emptyMeetings">
+                <!-- Empty State -->
+                <div class="empty-state" id="emptyMeetings">
                     <div class="empty-icon">📅</div>
-                    <p>No meetings scheduled for today</p>
-                    <button class="btn btn-primary mt-2" onclick="openQuickSchedule()">
-                        Schedule Meeting
-                    </button>
+                    <p>No meetings scheduled</p>
                 </div>
             </div>
             
@@ -348,7 +489,7 @@
             <div class="quick-schedule">
                 <h3 class="schedule-title">Schedule Meeting</h3>
                 
-                <form id="scheduleForm" method="post" action="{% url 'calendar' %}">
+                <form id="scheduleForm" method="POST" action="{% url 'calendar' %}">
                     {% csrf_token %}
                     <div class="form-group">
                         <label class="form-label">Meeting Title</label>
@@ -357,32 +498,43 @@
                     
                     <div class="form-group">
                         <label class="form-label">Date & Time</label>
-                        <input name="datetime" type="datetime-local" class="form-control" required>
+                        <input name="scheduled_time" type="datetime-local" class="form-control" required>
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">Duration</label>
+                        <label class="form-label">Duration (minutes)</label>
                         <select name="duration" class="form-control">
-                            <option value="15">15</option>
-                            <option value="30" selected>30</option>
-                            <option value="45">45</option>
-                            <option value="60">60</option>
-                            <option value="120">120</option>
+                            <option value="15">15 minutes</option>
+                            <option value="30" selected>30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60">1 hour</option>
+                            <option value="120">2 hours</option>
                         </select>
                     </div>
                     
+                    {% if user_classes %}
                     <div class="form-group">
-                        <label class="form-label">Meeting Type</label>
-                        <select name="meeting_type" class="form-control">
-                            <option value="team">Team Meeting</option>
-                            <option value="client">Client Call</option>
-                            <option value="personal">One-on-One</option>
-                            <option value="webinar">Webinar</option>
-                        </select>
+                        <label class="form-label">
+                            <input type="checkbox" name="restrict_to_classes" id="restrict_to_classes">
+                            Restrict to specific teams
+                        </label>
                     </div>
+                    
+                    <div class="form-group d-none" id="class_selection">
+                        <label class="form-label">Select Teams:</label>
+                        {% for membership in user_classes %}
+                        <div>
+                            <label style="font-weight: normal; display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" name="allowed_classes" value="{{ membership.user_class.id }}">
+                                {{ membership.user_class.code }} - {{ membership.user_class.name }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     
                     <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-calendar-plus me-2"></i>
+                        <i class="fas fa-calendar-plus" style="margin-right: 8px;"></i>
                         Schedule Meeting
                     </button>
                 </form>
@@ -391,16 +543,27 @@
     </div>
 </div>
 
-<!-- Meeting Detail Modal -->
-<div id="meetingModal" class="position-fixed top-0 start-0 w-100 h-100 d-none" 
-     style="background: rgba(0,0,0,0.5); z-index: 1050; align-items: center; justify-content: center;">
-    <div class="bg-white rounded-lg p-4" style="width: 90%; max-width: 500px;">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4 class="mb-0">Meeting Details</h4>
-            <button class="btn btn-sm" onclick="closeMeetingModal()">×</button>
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Delete Meeting</h3>
+            <button class="close-btn" onclick="closeDeleteModal()">&times;</button>
         </div>
-        <div id="modalContent">
-            <!-- Meeting details will be loaded here -->
+        <p>Are you sure you want to delete this meeting?</p>
+        <p id="deleteMeetingTitle" style="font-weight: 600; color: var(--dark);"></p>
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <form id="deleteForm" method="POST" style="flex: 1;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="meeting_id" id="deleteMeetingId">
+                <button type="submit" class="btn-delete" style="width: 100%; padding: 10px;">
+                    <i class="fas fa-trash" style="margin-right: 8px;"></i>Delete Meeting
+                </button>
+            </form>
+            <button class="btn btn-secondary" onclick="closeDeleteModal()" style="flex: 1;">
+                Cancel
+            </button>
         </div>
     </div>
 </div>
@@ -412,13 +575,28 @@
     let currentDate = new Date();
     let selectedDate = new Date();
     
-    // Meetings from backend (grouped by date)
-    const sampleMeetings = JSON.parse('{{ meetings_json|escapejs }}');
+    // Get meetings from Django backend
+    const backendMeetings = {{ meetings_json|safe }};
+    const meetingsData = {{ meetings_data|safe }}; // Full meeting data with IDs
     
     // Initialize Calendar
     document.addEventListener('DOMContentLoaded', function() {
         renderCalendar();
         updateTodaySection();
+        
+        // Team restriction toggle
+        const restrictCheckbox = document.getElementById('restrict_to_classes');
+        const classSelection = document.getElementById('class_selection');
+        
+        if (restrictCheckbox && classSelection) {
+            restrictCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    classSelection.classList.remove('d-none');
+                } else {
+                    classSelection.classList.add('d-none');
+                }
+            });
+        }
     });
     
     // Render Calendar Grid
@@ -490,18 +668,14 @@
         dayNumber.textContent = date.getDate();
         dayDiv.appendChild(dayNumber);
         
-        // Add events for this day
+        // Add events for this day from backend
         const dateString = date.toISOString().split('T')[0];
-        if (sampleMeetings[dateString]) {
-            sampleMeetings[dateString].forEach(meeting => {
+        if (backendMeetings && backendMeetings[dateString]) {
+            backendMeetings[dateString].forEach(meeting => {
                 const eventDiv = document.createElement('div');
-                eventDiv.className = `calendar-event event-${meeting.type}`;
-                eventDiv.textContent = `${meeting.time} ${meeting.title}`;
-                eventDiv.title = `${meeting.time} - ${meeting.title}`;
-                eventDiv.onclick = (e) => {
-                    e.stopPropagation();
-                    showMeetingDetails(dateString, meeting);
-                };
+                eventDiv.className = 'calendar-event event-team';
+                eventDiv.textContent = meeting.time ? `${meeting.time} ${meeting.title}` : meeting.title;
+                eventDiv.title = meeting.title;
                 dayDiv.appendChild(eventDiv);
             });
         }
@@ -511,6 +685,16 @@
             selectedDate = date;
             renderCalendar();
             updateTodaySection();
+            
+            // Update datetime input to selected date
+            const dateInput = document.querySelector('input[name="scheduled_time"]');
+            if (dateInput) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(new Date().getHours() + 1).padStart(2, '0');
+                dateInput.value = `${year}-${month}-${day}T${hours}:00`;
+            }
         };
         
         return dayDiv;
@@ -527,36 +711,60 @@
         
         // Check for meetings
         const dateString = selectedDate.toISOString().split('T')[0];
-        const meetings = sampleMeetings[dateString];
+        const meetings = meetingsData && meetingsData[dateString] ? meetingsData[dateString] : [];
 
-        if (meetings && meetings.length > 0) {
-            todayMeetings.classList.remove('d-none');
+        if (meetings.length > 0) {
             emptyMeetings.classList.add('d-none');
-            // Build meeting list
             todayMeetings.innerHTML = '';
+            
             meetings.forEach(m => {
                 const item = document.createElement('div');
                 item.className = 'meeting-item';
+                
                 const time = document.createElement('div');
                 time.className = 'meeting-time';
-                // Format time as HH:MM or locale
-                time.textContent = m.time;
+                time.textContent = m.time || 'All day';
+                
                 const title = document.createElement('div');
                 title.className = 'meeting-title';
                 title.textContent = m.title;
-                const details = document.createElement('div');
-                details.className = 'meeting-details';
-                details.textContent = `${m.room} • ${m.participants} participants`;
+                
+                const actions = document.createElement('div');
+                actions.className = 'meeting-actions';
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-delete';
+                deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+                deleteBtn.onclick = () => showDeleteModal(m.id, m.title);
+                
+                actions.appendChild(deleteBtn);
+                
                 item.appendChild(time);
                 item.appendChild(title);
-                item.appendChild(details);
+                item.appendChild(actions);
                 todayMeetings.appendChild(item);
             });
         } else {
-            todayMeetings.classList.add('d-none');
             emptyMeetings.classList.remove('d-none');
             todayMeetings.innerHTML = '';
         }
+    }
+    
+    // Show Delete Modal
+    function showDeleteModal(meetingId, meetingTitle) {
+        const modal = document.getElementById('deleteModal');
+        const titleEl = document.getElementById('deleteMeetingTitle');
+        const idInput = document.getElementById('deleteMeetingId');
+        
+        titleEl.textContent = meetingTitle;
+        idInput.value = meetingId;
+        modal.classList.add('show');
+    }
+    
+    // Close Delete Modal
+    function closeDeleteModal() {
+        const modal = document.getElementById('deleteModal');
+        modal.classList.remove('show');
     }
     
     // Change Month
@@ -572,111 +780,11 @@
         renderCalendar();
         updateTodaySection();
     }
-    
-    // Show Meeting Details
-    function showMeetingDetails(dateString, meeting) {
-        const modal = document.getElementById('meetingModal');
-        const modalContent = document.getElementById('modalContent');
-        
-        const date = new Date(dateString);
-        const formattedDate = date.toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-        });
-        
-        modalContent.innerHTML = `
-            <div>
-                <h5>${meeting.title}</h5>
-                <p class="text-muted mb-3">${formattedDate} at ${meeting.time}</p>
-                
-                <div class="mb-3">
-                    <strong>Meeting Type:</strong> 
-                    <span class="badge ${getMeetingTypeClass(meeting.type)}">
-                        ${meeting.type.charAt(0).toUpperCase() + meeting.type.slice(1)}
-                    </span>
-                </div>
-                
-                <div class="mb-4">
-                    <strong>Description:</strong>
-                    <p>Video conference meeting with team members to discuss progress and plan next steps.</p>
-                </div>
-                
-                <div class="d-flex gap-2">
-                    <button class="btn btn-primary flex-1">
-                        <i class="fas fa-video me-2"></i>Join Meeting
-                    </button>
-                    <button class="btn btn-secondary flex-1">
-                        <i class="fas fa-edit me-2"></i>Edit
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        modal.classList.remove('d-none');
-        modal.classList.add('d-flex');
-    }
-    
-    // Close Meeting Modal
-    function closeMeetingModal() {
-        const modal = document.getElementById('meetingModal');
-        modal.classList.add('d-none');
-        modal.classList.remove('d-flex');
-    }
-    
-    // Get Meeting Type CSS Class
-    function getMeetingTypeClass(type) {
-        const classes = {
-            'team': 'bg-blue-100 text-blue-800',
-            'client': 'bg-purple-100 text-purple-800',
-            'personal': 'bg-green-100 text-green-800'
-        };
-        return classes[type] || 'bg-gray-100 text-gray-800';
-    }
-    
-    // Quick Schedule Form
-    document.getElementById('scheduleForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // Get form values
-        const title = this.querySelector('input[type="text"]').value;
-        const datetime = this.querySelector('input[type="datetime-local"]').value;
-        
-        if (title && datetime) {
-            alert(`Meeting "${title}" scheduled successfully!`);
-            this.reset();
-            
-            // In a real app, you would send this to your backend
-            console.log('Meeting scheduled:', { title, datetime });
-        }
-    });
-    
-    // Open Quick Schedule with selected date
-    function openQuickSchedule() {
-        const dateInput = document.querySelector('input[type="datetime-local"]');
-        const year = selectedDate.getFullYear();
-        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-        const day = String(selectedDate.getDate()).padStart(2, '0');
-        
-        // Set default time to next hour
-        const nextHour = new Date();
-        nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
-        const hours = String(nextHour.getHours()).padStart(2, '0');
-        const minutes = String(nextHour.getMinutes()).padStart(2, '0');
-        
-        dateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
-        
-        // Scroll to form
-        document.querySelector('.quick-schedule').scrollIntoView({ 
-            behavior: 'smooth' 
-        });
-    }
-    
+
     // Close modal when clicking outside
-    document.getElementById('meetingModal').addEventListener('click', function(e) {
+    document.getElementById('deleteModal').addEventListener('click', function(e) {
         if (e.target === this) {
-            closeMeetingModal();
+            closeDeleteModal();
         }
     });
 </script>

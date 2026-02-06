@@ -290,69 +290,124 @@ def room_detail(request, room_id):
 
 @login_required
 def calendar_view(request):
-    """Calendar view for scheduling meetings"""
+    """Calendar view for scheduling and managing meetings"""
+    from collections import defaultdict
+    import json
+    from datetime import datetime
+    
+    # Get user's teams
     user_classes = ClassMembership.objects.filter(user=request.user).select_related('user_class')
     
+    # Handle POST requests
     if request.method == 'POST':
-        title = request.POST.get('title')
-        room_id = request.POST.get('room_id')
-        scheduled_time = request.POST.get('scheduled_time')
-        duration = request.POST.get('duration', 60)
-        restrict_to_classes = request.POST.get('restrict_to_classes') == 'on'
-        selected_class_ids = request.POST.getlist('allowed_classes')
+        action = request.POST.get('action')
         
-        if not title or not scheduled_time:
-            messages.error(request, 'Title and scheduled time are required')
+        # DELETE MEETING
+        if action == 'delete':
+            meeting_id = request.POST.get('meeting_id')
+            try:
+                meeting = Meeting.objects.get(id=meeting_id)
+                
+                # Check if user is the host (room owner)
+                if meeting.room.host == request.user:
+                    meeting_title = meeting.title
+                    meeting.delete()
+                    messages.success(request, f'Meeting "{meeting_title}" deleted successfully!')
+                else:
+                    messages.error(request, 'You do not have permission to delete this meeting')
+            except Meeting.DoesNotExist:
+                messages.error(request, 'Meeting not found')
+            
             return redirect('calendar')
         
-        try:
-            # Get or create room
-            if room_id:
-                room = Room.objects.get(id=room_id, host=request.user)
-            else:
+        # CREATE MEETING
+        else:
+            title = request.POST.get('title')
+            scheduled_time = request.POST.get('scheduled_time')
+            duration = request.POST.get('duration', 60)
+            restrict_to_classes = request.POST.get('restrict_to_classes') == 'on'
+            selected_class_ids = request.POST.getlist('allowed_classes')
+            
+            if not title or not scheduled_time:
+                messages.error(request, 'Title and scheduled time are required')
+                return redirect('calendar')
+            
+            try:
+                # Create room for the meeting
                 room = Room.objects.create(
                     name=f"{title} - Room",
                     host=request.user,
                     room_type='public'
                 )
-            
-            # Create meeting
-            meeting = Meeting.objects.create(
-                title=title,
-                room=room,
-                scheduled_time=scheduled_time,
-                duration=int(duration),
-                restrict_to_classes=restrict_to_classes
-            )
-            meeting.participants.add(request.user)
-            
-            # Add allowed classes
-            if restrict_to_classes and selected_class_ids:
-                for class_id in selected_class_ids:
-                    try:
-                        user_class = UserClass.objects.get(id=class_id)
-                        meeting.allowed_classes.add(user_class)
-                    except:
-                        pass
-            
-            messages.success(request, 'Meeting scheduled successfully!')
-            return redirect('calendar')
-            
-        except Exception as e:
-            messages.error(request, f'Error scheduling meeting: {str(e)}')
-            return redirect('calendar')
+                
+                # Create meeting
+                meeting = Meeting.objects.create(
+                    title=title,
+                    room=room,
+                    scheduled_time=scheduled_time,
+                    duration=int(duration),
+                    restrict_to_classes=restrict_to_classes
+                )
+                meeting.participants.add(request.user)
+                
+                # Add allowed teams
+                if restrict_to_classes and selected_class_ids:
+                    for class_id in selected_class_ids:
+                        try:
+                            user_class = UserClass.objects.get(id=class_id)
+                            meeting.allowed_classes.add(user_class)
+                        except UserClass.DoesNotExist:
+                            pass
+                
+                messages.success(request, f'Meeting "{title}" scheduled successfully!')
+                return redirect('calendar')
+                
+            except Exception as e:
+                messages.error(request, f'Error scheduling meeting: {str(e)}')
+                return redirect('calendar')
     
+    # GET - Display calendar
+    # Get upcoming meetings for the user
     meetings = Meeting.objects.filter(
         participants=request.user,
         scheduled_time__gte=timezone.now()
-    ).order_by('scheduled_time')
+    ).order_by('scheduled_time').select_related('room')
+    
+    # Group meetings by date for calendar display (simplified - just title and time)
+    meetings_by_date = defaultdict(list)
+    
+    # Group meetings with full data (including ID for deletion)
+    meetings_data = defaultdict(list)
+    
+    for meeting in meetings:
+        date_str = meeting.scheduled_time.strftime('%Y-%m-%d')
+        time_str = meeting.scheduled_time.strftime('%H:%M')
+        
+        # Simplified for calendar grid display
+        meetings_by_date[date_str].append({
+            'title': meeting.title,
+            'time': time_str,
+        })
+        
+        # Full data for sidebar (includes ID)
+        meetings_data[date_str].append({
+            'id': meeting.id,
+            'title': meeting.title,
+            'time': time_str,
+        })
+    
+    # Convert to JSON for JavaScript
+    meetings_json = json.dumps(dict(meetings_by_date))
+    meetings_data_json = json.dumps(dict(meetings_data))
     
     context = {
         'meetings': meetings,
+        'meetings_json': meetings_json,
+        'meetings_data': meetings_data_json,
         'user_classes': user_classes,
+        'now': timezone.now(),
     }
     return render(request, 'calendar.html', context)
-
 @login_required
 def contacts_view(request):
     """View and manage contacts"""

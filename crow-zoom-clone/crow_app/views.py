@@ -438,13 +438,10 @@ def instant_room(request):
 def webrtc_video_room(request, room_id):
     """WebRTC Video Room"""
     try:
-        # Try to get MeetingRoom (WebRTC room)
         room = MeetingRoom.objects.get(id=room_id)
-    except:
+    except MeetingRoom.DoesNotExist:
         try:
-            # Try to get regular Room
             room = Room.objects.get(id=room_id)
-            # Convert to MeetingRoom
             meeting_room, created = MeetingRoom.objects.get_or_create(
                 id=room_id,
                 defaults={
@@ -454,7 +451,6 @@ def webrtc_video_room(request, room_id):
             )
             room = meeting_room
         except:
-            # Create new MeetingRoom
             room = MeetingRoom.objects.create(
                 id=room_id,
                 name=f"Video Room - {room_id}",
@@ -469,7 +465,6 @@ def webrtc_video_room(request, room_id):
         'room': room,
         'user': request.user
     })
-
 # ===== CLASS MANAGEMENT VIEWS =====
 @login_required
 def manage_classes(request):

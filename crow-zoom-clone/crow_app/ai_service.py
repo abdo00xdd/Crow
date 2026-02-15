@@ -1,4 +1,5 @@
 # crow_app/ai_service.py
+
 import logging
 from django.conf import settings
 
@@ -6,81 +7,71 @@ logger = logging.getLogger(__name__)
 
 class GeminiAIService:
     def __init__(self):
-        self.model = None
+        self.client = None
         self.use_fallback = True
         self.api_key = getattr(settings, "GEMINI_API_KEY", None)
 
         if not self.api_key:
-            logger.warning("⚠️ GEMINI_API_KEY not set. Using fallback.")
+            print("No GEMINI_API_KEY found.")
             return
 
         try:
-            import google.generativeai as genai
+            from google import genai
 
-            genai.configure(api_key=self.api_key)
+            self.client = genai.Client(api_key=self.api_key)
 
-            # ✅ Use current supported model
-            self.model = genai.GenerativeModel("gemini-1.5-flash")
+            # Quick test call
+            response = self.client.models.generate_content(
+                model="gemini-1.5-flash",
+                contents="Reply only with OK"
+            )
 
-            # Test request
-            test = self.model.generate_content("Reply only with OK")
-            if test and test.text:
+            if response and response.text:
                 self.use_fallback = False
-                logger.info("✅ Gemini AI initialized successfully")
+                print("Gemini initialized successfully.")
             else:
-                logger.warning("⚠️ Gemini test response empty")
+                print("Gemini returned empty test response.")
 
-        except ImportError:
-            logger.error("❌ google-generativeai not installed")
         except Exception as e:
-            logger.error(f"❌ Gemini init failed: {e}")
+            print("Gemini init failed:", e)
+            self.use_fallback = True
 
-    def get_chat_response(self, user_message, user_context=None):
-        if self.use_fallback or not self.model:
-            return self._fallback(user_message, user_context)
+    def get_chat_response(self, message, context=None):
+        if self.use_fallback or not self.client:
+            return self._fallback(message, context)
 
         try:
-            prompt = self._build_prompt(user_message, user_context)
-            response = self.model.generate_content(prompt)
+            prompt = self._build_prompt(message, context)
+
+            response = self.client.models.generate_content(
+                model="gemini-2.0-pro",
+                contents=prompt,
+            )
 
             if response and response.text:
                 return response.text.strip()
 
-            return self._fallback(user_message, user_context)
+            return self._fallback(message, context)
 
         except Exception as e:
-            logger.error(f"Gemini runtime error: {e}")
-            return self._fallback(user_message, user_context)
+            print("Gemini runtime error:", e)
+            return self._fallback(message, context)
 
     def _build_prompt(self, message, context):
-        system = (
-            "You are Crow AI, a helpful assistant for a video conferencing platform.\n"
-            "Keep answers short (2–3 sentences).\n"
-        )
+        system = """
+You are Crow AI, an intelligent assistant for a video conferencing platform.
+Be helpful, natural, and conversational.
+Answer clearly and concisely.
+"""
 
         if context:
             if context.get("username"):
                 system += f"\nUser: {context['username']}"
-            if context.get("teams"):
-                teams = ", ".join(t["name"] for t in context["teams"][:3])
-                system += f"\nTeams: {teams}"
 
         return f"{system}\n\nUser question: {message}\nAnswer:"
 
     def _fallback(self, message, context=None):
-        msg = message.lower()
-
-        if any(w in msg for w in ["hi", "hello", "hey"]):
-            name = context.get("username", "there") if context else "there"
-            return f"Hello {name}! 👋 How can I help you with Crow?"
-
-        if any(w in msg for w in ["meeting", "schedule"]):
-            return "You can schedule meetings from the Calendar page or create instant rooms from the dashboard."
-
-        if any(w in msg for w in ["video", "camera", "mic"]):
-            return "Check browser permissions and ensure no other app is using your camera or microphone."
-
-        return "I'm here to help with meetings, teams, and technical issues. What do you need?"
+        return "AI service is temporarily unavailable. Please try again."
 
 # Singleton
 gemini_service = GeminiAIService()

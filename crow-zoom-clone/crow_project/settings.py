@@ -90,10 +90,16 @@ LOGOUT_REDIRECT_URL = 'home'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+
+ASGI_APPLICATION = 'crow_project.asgi.application'
 # Channels configuration
+# Configure Channels
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',  # Changed for Windows compatibility
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)],
+        },
     },
 }
 

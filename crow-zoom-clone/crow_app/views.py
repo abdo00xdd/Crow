@@ -6,15 +6,18 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
+from datetime import timedelta
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db import IntegrityError  # FIX: Added missing import
-from django.db.models import Q  # FIX: Added for query filtering
+from django.db.models import Count, Avg, Sum,Q  # FIX: Added for query filtering
 from .models import ClassMembership, Room, Meeting, Contact, UserClass, UserProfile, MeetingRoom
 import json
 import requests
 from django.views.decorators.csrf import csrf_exempt
 from .ai_service import gemini_service
+from .models import UserSession, MeetingSession, UserActivity, OnlineUser
+
 
 # ===== AI CHATBOT VIEWS =====
 @login_required
@@ -586,3 +589,269 @@ def class_detail(request, class_id):
         'meetings': meetings,
     }
     return render(request, 'class_detail.html', context)
+@login_required
+def session_dashboard(request):
+    """Dashboard showing user's session history"""
+    
+    # User's active sessions
+    active_sessions = UserSession.objects.filter(
+        user=request.user,
+        is_active=True
+    ).order_by('-last_activity')
+    
+    # Recent sessions (last 30 days)
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    recent_sessions = UserSession.objects.filter(
+        user=request.user,
+        login_time__gte=thirty_days_ago
+    ).order_by('-login_time')[:20]
+    
+    # Meeting sessions
+    recent_meetings = MeetingSession.objects.filter(
+        user=request.user
+    ).select_related('meeting', 'room').order_by('-joined_at')[:10]
+    
+    # Activity log
+    recent_activities = UserActivity.objects.filter(
+        user=request.user
+    ).order_by('-timestamp')[:20]
+    
+    # Statistics
+    total_sessions = UserSession.objects.filter(user=request.user).count()
+    total_meeting_time = MeetingSession.objects.filter(
+        user=request.user,
+        left_at__isnull=False
+    ).aggregate(
+        total=Sum('video_enabled_duration')
+    )['total'] or 0
+    
+    context = {
+        'active_sessions': active_sessions,
+        'recent_sessions': recent_sessions,
+        'recent_meetings': recent_meetings,
+        'recent_activities': recent_activities,
+        'total_sessions': total_sessions,
+        'total_meeting_time': total_meeting_time // 60,  # Convert to minutes
+    }
+    
+    return render(request, 'session_dashboard.html', context)
+
+
+@login_required
+def terminate_session(request, session_id):
+    """Terminate a specific session"""
+    if request.method == 'POST':
+        try:
+            session = UserSession.objects.get(
+                id=session_id,
+                user=request.user
+            )
+            session.is_active = False
+            session.logout_time = timezone.now()
+            session.save()
+            
+            messages.success(request, 'Session terminated successfully')
+        except UserSession.DoesNotExist:
+            messages.error(request, 'Session not found')
+    
+    return redirect('session_dashboard')
+
+
+@login_required
+def online_users_api(request):
+    """API endpoint to get currently online users"""
+    online_users = OnlineUser.get_online_users()
+    
+    data = {
+        'count': online_users.count(),
+        'users': [
+            {
+                'username': user.user.username,
+                'last_seen': user.last_seen.isoformat(),
+                'is_in_meeting': user.is_in_meeting,
+                'current_page': user.current_page
+            }
+            for user in online_users
+        ]
+    }
+    
+    return JsonResponse(data)
+
+
+@login_required
+def user_analytics(request):
+    """Analytics dashboard for user activity"""
+    
+    # Get date range
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    
+    # Sessions by day
+    sessions_by_day = UserSession.objects.filter(
+        user=request.user,
+        login_time__gte=thirty_days_ago
+    ).extra(
+        select={'day': 'date(login_time)'}
+    ).values('day').annotate(
+        count=Count('id')
+    ).order_by('day')
+    
+    # Activity breakdown
+    activity_breakdown = UserActivity.objects.filter(
+        user=request.user,
+        timestamp__gte=thirty_days_ago
+    ).values('activity_type').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # Device usage
+    device_usage = UserSession.objects.filter(
+        user=request.user,
+        login_time__gte=thirty_days_ago
+    ).values('device_type').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # Browser usage
+    browser_usage = UserSession.objects.filter(
+        user=request.user,
+        login_time__gte=thirty_days_ago
+    ).values('browser').annotate(
+        count=Count('id')
+    ).order_by('-count')[:5]
+    
+    # Meeting statistics
+    meeting_stats = MeetingSession.objects.filter(
+        user=request.user,
+        joined_at__gte=thirty_days_ago
+    ).aggregate(
+        total_meetings=Count('id'),
+        total_duration=Sum('video_enabled_duration'),
+        avg_duration=Avg('video_enabled_duration')
+    )
+    
+    context = {
+        'sessions_by_day': list(sessions_by_day),
+        'activity_breakdown': list(activity_breakdown),
+        'device_usage': list(device_usage),
+        'browser_usage': list(browser_usage),
+        'meeting_stats': meeting_stats,
+    }
+    
+    return render(request, 'user_analytics.html', context)
+
+
+# Helper function to track meeting join/leave
+def track_meeting_session(user, meeting, action='join'):
+    """Track when users join/leave meetings"""
+    
+    if action == 'join':
+        # Create meeting session
+        session = MeetingSession.objects.create(
+            user=user,
+            meeting=meeting,
+            room=meeting.room,
+            device_type=get_device_type(),  # You'd get this from request
+            browser=get_browser()  # You'd get this from request
+        )
+        
+        # Update online status
+        OnlineUser.objects.update_or_create(
+            user=user,
+            defaults={
+                'is_in_meeting': True,
+                'current_meeting': meeting
+            }
+        )
+        
+        # Log activity
+        UserActivity.objects.create(
+            user=user,
+            activity_type='meeting_joined',
+            description=f"Joined meeting: {meeting.title}",
+            meeting=meeting,
+            room=meeting.room
+        )
+        
+    elif action == 'leave':
+        # Close meeting session
+        session = MeetingSession.objects.filter(
+            user=user,
+            meeting=meeting,
+            left_at__isnull=True
+        ).first()
+        
+        if session:
+            session.left_at = timezone.now()
+            session.save()
+        
+        # Update online status
+        OnlineUser.objects.filter(user=user).update(
+            is_in_meeting=False,
+            current_meeting=None
+        )
+        
+        # Log activity
+        UserActivity.objects.create(
+            user=user,
+            activity_type='meeting_left',
+            description=f"Left meeting: {meeting.title}",
+            meeting=meeting,
+            room=meeting.room
+        )
+
+
+# Signal handlers for automatic session tracking
+from django.contrib.auth.signals import user_logged_in, user_logged_out
+from django.dispatch import receiver
+
+@receiver(user_logged_in)
+def on_user_login(sender, request, user, **kwargs):
+    """Track user login"""
+    UserActivity.objects.create(
+        user=user,
+        activity_type='login',
+        description='User logged in',
+        ip_address=get_client_ip(request),
+        user_agent=request.META.get('HTTP_USER_AGENT', '')
+    )
+
+
+@receiver(user_logged_out)
+def on_user_logout(sender, request, user, **kwargs):
+    """Track user logout"""
+    
+    # Mark session as inactive
+    if hasattr(request, 'session') and request.session.session_key:
+        UserSession.objects.filter(
+            user=user,
+            session_key=request.session.session_key,
+            is_active=True
+        ).update(
+            is_active=False,
+            logout_time=timezone.now()
+        )
+    
+    # Log activity
+    UserActivity.objects.create(
+        user=user,
+        activity_type='logout',
+        description='User logged out',
+        ip_address=get_client_ip(request),
+        user_agent=request.META.get('HTTP_USER_AGENT', '')
+    )
+
+
+def get_client_ip(request):
+    """Helper to get IP address"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+
+
+
+
+

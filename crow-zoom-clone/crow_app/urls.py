@@ -32,4 +32,12 @@ urlpatterns = [
     path('classes/join/', views.join_class, name='join_class'),
     path('classes/<int:class_id>/', views.class_detail, name='class_detail'),
 
+# Session management
+    path('sessions/', views.session_dashboard, name='session_dashboard'),
+    path('sessions/terminate/<int:session_id>/', views.terminate_session, name='terminate_session'),
+    path('analytics/', views.user_analytics, name='user_analytics'),
+    
+    # API endpoints
+    path('api/online-users/', views.online_users_api, name='online_users_api'),
+
 ]

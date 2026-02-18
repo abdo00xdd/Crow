@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 import uuid
 from django.utils import timezone
 from datetime import timedelta
-# Your existing models
+
 class Room(models.Model):
     ROOM_TYPES = [('public', 'Public Room'), ('private', 'Private Room')]
     
@@ -258,3 +258,177 @@ class OnlineUser(models.Model):
         """Get list of currently online users"""
         threshold = timezone.now() - timedelta(minutes=2)
         return OnlineUser.objects.filter(last_seen__gte=threshold).select_related('user')
+class AdminRole(models.Model):
+    """
+    Extended permissions for admin users
+    Allows role-based access to admin dashboard
+    """
+    ROLE_CHOICES = [
+        ('super_admin', 'Super Admin'),
+        ('analytics_admin', 'Analytics Admin'),
+        ('support_admin', 'Support Admin'),
+        ('moderator', 'Moderator'),
+    ]
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='admin_role')
+    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default='moderator')
+    
+    # Permissions
+    can_view_analytics = models.BooleanField(default=True)
+    can_manage_users = models.BooleanField(default=False)
+    can_manage_teams = models.BooleanField(default=False)
+    can_view_all_meetings = models.BooleanField(default=False)
+    can_delete_content = models.BooleanField(default=False)
+    can_manage_admins = models.BooleanField(default=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Admin Role"
+        verbose_name_plural = "Admin Roles"
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.get_role_display()}"
+    
+    def is_super_admin(self):
+        return self.role == 'super_admin'
+    
+    def save(self, *args, **kwargs):
+        # Auto-set permissions based on role
+        if self.role == 'super_admin':
+            self.can_view_analytics = True
+            self.can_manage_users = True
+            self.can_manage_teams = True
+            self.can_view_all_meetings = True
+            self.can_delete_content = True
+            self.can_manage_admins = True
+        elif self.role == 'analytics_admin':
+            self.can_view_analytics = True
+            self.can_view_all_meetings = True
+        elif self.role == 'support_admin':
+            self.can_view_analytics = True
+            self.can_manage_users = True
+        
+        super().save(*args, **kwargs)
+
+
+class SiteStatistics(models.Model):
+    """
+    Daily snapshot of site statistics for trend analysis
+    """
+    date = models.DateField(unique=True, default=timezone.now)
+    
+    # User metrics
+    total_users = models.IntegerField(default=0)
+    new_users_today = models.IntegerField(default=0)
+    active_users_today = models.IntegerField(default=0)
+    
+    # Meeting metrics
+    total_meetings = models.IntegerField(default=0)
+    meetings_today = models.IntegerField(default=0)
+    total_meeting_minutes = models.BigIntegerField(default=0)
+    
+    # Team metrics
+    total_teams = models.IntegerField(default=0)
+    teams_created_today = models.IntegerField(default=0)
+    
+    # Activity metrics
+    total_logins_today = models.IntegerField(default=0)
+    peak_concurrent_users = models.IntegerField(default=0)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-date']
+        verbose_name_plural = "Site Statistics"
+    
+    def __str__(self):
+        return f"Stats for {self.date}"
+    
+    @classmethod
+    def generate_today_stats(cls):
+        """Generate statistics for today"""
+        from django.contrib.auth.models import User
+        from datetime import timedelta
+        
+        today = timezone.now().date()
+        yesterday = today - timedelta(days=1)
+        
+        # User stats
+        total_users = User.objects.count()
+        new_users_today = User.objects.filter(date_joined__date=today).count()
+        active_users_today = UserSession.objects.filter(
+            login_time__date=today
+        ).values('user').distinct().count()
+        
+        # Meeting stats
+        total_meetings = Meeting.objects.count()
+        meetings_today = Meeting.objects.filter(created_at__date=today).count()
+        total_meeting_minutes = MeetingSession.objects.filter(
+            left_at__isnull=False
+        ).aggregate(
+            total=models.Sum(
+                models.F('left_at') - models.F('joined_at')
+            )
+        )['total'] or timedelta(0)
+        
+        # Team stats
+        total_teams = UserClass.objects.count()
+        teams_created_today = UserClass.objects.filter(created_at__date=today).count()
+        
+        # Activity stats
+        total_logins_today = UserActivity.objects.filter(
+            activity_type='login',
+            timestamp__date=today
+        ).count()
+        
+        # Create or update stats
+        stats, created = cls.objects.update_or_create(
+            date=today,
+            defaults={
+                'total_users': total_users,
+                'new_users_today': new_users_today,
+                'active_users_today': active_users_today,
+                'total_meetings': total_meetings,
+                'meetings_today': meetings_today,
+                'total_meeting_minutes': int(total_meeting_minutes.total_seconds() // 60),
+                'total_teams': total_teams,
+                'teams_created_today': teams_created_today,
+                'total_logins_today': total_logins_today,
+            }
+        )
+        
+        return stats
+
+
+# Helper function to check if user is admin
+def is_admin(user):
+    """Check if user has admin role"""
+    try:
+        return hasattr(user, 'admin_role') and user.admin_role is not None
+    except:
+        return False
+
+
+def require_admin_permission(permission):
+    """Decorator to check admin permissions"""
+    def decorator(view_func):
+        def wrapper(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return redirect('login')
+            
+            if not is_admin(request.user):
+                messages.error(request, "You don't have admin access")
+                return redirect('home')
+            
+            admin_role = request.user.admin_role
+            
+            # Check specific permission
+            if permission and not getattr(admin_role, permission, False):
+                messages.error(request, "You don't have permission for this action")
+                return redirect('admin_dashboard')
+            
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator

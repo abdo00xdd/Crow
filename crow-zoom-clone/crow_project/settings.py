@@ -5,7 +5,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = "your-django-secret-key-here"
-GROQ_API_KEY = ""
+GROQ_API_KEY = "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"
 
 DEBUG = True
 ALLOWED_HOSTS = []

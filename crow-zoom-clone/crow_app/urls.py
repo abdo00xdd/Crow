@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views,admin_views 
 
 urlpatterns = [
     # Authentication
@@ -39,5 +39,14 @@ urlpatterns = [
     
     # API endpoints
     path('api/online-users/', views.online_users_api, name='online_users_api'),
+
+    # Admin routes
+    path('admin-dashboard/', admin_views.admin_dashboard, name='admin_dashboard'),
+    path('admin-dashboard/users/', admin_views.admin_users_list, name='admin_users_list'),
+    path('admin-dashboard/users/<int:user_id>/', admin_views.admin_user_detail, name='admin_user_detail'),
+    path('admin-dashboard/teams/', admin_views.admin_teams_list, name='admin_teams_list'),
+    path('admin-dashboard/meetings/', admin_views.admin_meetings_list, name='admin_meetings_list'),
+    path('admin-dashboard/analytics-api/', admin_views.admin_analytics_api, name='admin_analytics_api'),
+    path('admin-dashboard/make-admin/<int:user_id>/', admin_views.make_admin, name='make_admin'),
 
 ]

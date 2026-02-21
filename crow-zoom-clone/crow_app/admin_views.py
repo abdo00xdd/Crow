@@ -14,6 +14,9 @@ from .models import (
 )
 from django.contrib import messages
 
+from django.db import IntegrityError
+
+
 def is_admin(user):
     """Check if user has admin role"""
     try:
@@ -416,3 +419,330 @@ def make_admin(request, user_id):
         return redirect('admin_users_list')
     
     return redirect('admin_dashboard')
+@login_required
+def admin_manage_users(request):
+    """
+    User management page - add, edit, delete users
+    Super admin only
+    """
+    if not is_admin(request.user):
+        messages.error(request, "Access denied")
+        return redirect('home')
+    
+    if not request.user.admin_role.can_manage_users:
+        messages.error(request, "You don't have permission to manage users")
+        return redirect('admin_dashboard')
+    
+    # Get all users with their roles
+    users = User.objects.annotate(
+        session_count=Count('sessions'),
+        meeting_count=Count('meeting_sessions'),
+        team_count=Count('class_memberships')
+    ).select_related('admin_role').order_by('-date_joined')
+    
+    # Get available admin roles
+    admin_roles = AdminRole.ROLE_CHOICES
+    
+    context = {
+        'users': users,
+        'admin_roles': admin_roles,
+        'can_manage_admins': request.user.admin_role.can_manage_admins,
+    }
+    
+    return render(request, 'admin/manage_users.html', context)
+
+
+@login_required
+def admin_create_user(request):
+    """Create a new user"""
+    if not is_admin(request.user):
+        messages.error(request, "Access denied")
+        return redirect('home')
+    
+    if not request.user.admin_role.can_manage_users:
+        messages.error(request, "You don't have permission to create users")
+        return redirect('admin_dashboard')
+    
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        password = request.POST.get('password', '')
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        is_admin_user = request.POST.get('is_admin', 'no') == 'yes'
+        admin_role = request.POST.get('admin_role', 'moderator')
+        
+        # Validation
+        if not username or not email or not password:
+            messages.error(request, "Username, email, and password are required")
+            return redirect('admin_manage_users')
+        
+        if len(password) < 6:
+            messages.error(request, "Password must be at least 6 characters")
+            return redirect('admin_manage_users')
+        
+        try:
+            # Create user
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name
+            )
+            
+            # Create admin role if requested
+            if is_admin_user and request.user.admin_role.can_manage_admins:
+                AdminRole.objects.create(
+                    user=user,
+                    role=admin_role
+                )
+            
+            # Log activity
+            UserActivity.objects.create(
+                user=request.user,
+                activity_type='user_created',
+                description=f"Created user: {username}"
+            )
+            
+            messages.success(request, f"User {username} created successfully")
+            return redirect('admin_manage_users')
+            
+        except IntegrityError:
+            messages.error(request, f"Username '{username}' already exists")
+            return redirect('admin_manage_users')
+        except Exception as e:
+            messages.error(request, f"Error creating user: {str(e)}")
+            return redirect('admin_manage_users')
+    
+    return redirect('admin_manage_users')
+
+
+@login_required
+def admin_edit_user(request, user_id):
+    """Edit an existing user"""
+    if not is_admin(request.user):
+        messages.error(request, "Access denied")
+        return redirect('home')
+    
+    if not request.user.admin_role.can_manage_users:
+        messages.error(request, "You don't have permission to edit users")
+        return redirect('admin_dashboard')
+    
+    user = get_object_or_404(User, id=user_id)
+    
+    # Prevent editing self
+    if user.id == request.user.id:
+        messages.error(request, "You cannot edit your own account from this page")
+        return redirect('admin_manage_users')
+    
+    if request.method == 'POST':
+        # Update basic info
+        user.email = request.POST.get('email', user.email).strip()
+        user.first_name = request.POST.get('first_name', user.first_name).strip()
+        user.last_name = request.POST.get('last_name', user.last_name).strip()
+        user.is_active = request.POST.get('is_active', 'no') == 'yes'
+        
+        # Update password if provided
+        new_password = request.POST.get('new_password', '').strip()
+        if new_password:
+            if len(new_password) >= 6:
+                user.set_password(new_password)
+            else:
+                messages.error(request, "Password must be at least 6 characters")
+                return redirect('admin_manage_users')
+        
+        try:
+            user.save()
+            
+            # Update admin role if user has permission
+            if request.user.admin_role.can_manage_admins:
+                is_admin_user = request.POST.get('is_admin', 'no') == 'yes'
+                admin_role = request.POST.get('admin_role', 'moderator')
+                
+                if is_admin_user:
+                    # Create or update admin role
+                    AdminRole.objects.update_or_create(
+                        user=user,
+                        defaults={'role': admin_role}
+                    )
+                else:
+                    # Remove admin role if exists
+                    if hasattr(user, 'admin_role'):
+                        user.admin_role.delete()
+            
+            # Log activity
+            UserActivity.objects.create(
+                user=request.user,
+                activity_type='user_updated',
+                description=f"Updated user: {user.username}"
+            )
+            
+            messages.success(request, f"User {user.username} updated successfully")
+            
+        except Exception as e:
+            messages.error(request, f"Error updating user: {str(e)}")
+        
+        return redirect('admin_manage_users')
+    
+    # GET request - show edit modal data via API
+    return redirect('admin_manage_users')
+
+
+@login_required
+def admin_delete_user(request, user_id):
+    """Delete a user"""
+    if not is_admin(request.user):
+        messages.error(request, "Access denied")
+        return redirect('home')
+    
+    if not request.user.admin_role.can_delete_content:
+        messages.error(request, "You don't have permission to delete users")
+        return redirect('admin_dashboard')
+    
+    user = get_object_or_404(User, id=user_id)
+    
+    # Prevent deleting self
+    if user.id == request.user.id:
+        messages.error(request, "You cannot delete your own account")
+        return redirect('admin_manage_users')
+    
+    # Prevent deleting superusers (safety)
+    if user.is_superuser:
+        messages.error(request, "Cannot delete superuser accounts")
+        return redirect('admin_manage_users')
+    
+    if request.method == 'POST':
+        username = user.username
+        
+        try:
+            # Log activity before deletion
+            UserActivity.objects.create(
+                user=request.user,
+                activity_type='user_deleted',
+                description=f"Deleted user: {username}"
+            )
+            
+            # Delete user
+            user.delete()
+            
+            messages.success(request, f"User {username} deleted successfully")
+            
+        except Exception as e:
+            messages.error(request, f"Error deleting user: {str(e)}")
+    
+    return redirect('admin_manage_users')
+
+
+@login_required
+def admin_toggle_user_status(request, user_id):
+    """Toggle user active/inactive status"""
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    if not request.user.admin_role.can_manage_users:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    user = get_object_or_404(User, id=user_id)
+    
+    # Prevent toggling self
+    if user.id == request.user.id:
+        return JsonResponse({'error': 'Cannot modify own account'}, status=400)
+    
+    # Toggle status
+    user.is_active = not user.is_active
+    user.save()
+    
+    # Log activity
+    UserActivity.objects.create(
+        user=request.user,
+        activity_type='user_status_changed',
+        description=f"{'Activated' if user.is_active else 'Deactivated'} user: {user.username}"
+    )
+    
+    return JsonResponse({
+        'success': True,
+        'is_active': user.is_active,
+        'message': f"User {user.username} {'activated' if user.is_active else 'deactivated'}"
+    })
+
+
+@login_required
+def admin_get_user_data(request, user_id):
+    """Get user data for editing (API endpoint)"""
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    user = get_object_or_404(User, id=user_id)
+    
+    data = {
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'is_active': user.is_active,
+        'is_admin': hasattr(user, 'admin_role'),
+        'admin_role': user.admin_role.role if hasattr(user, 'admin_role') else None,
+        'date_joined': user.date_joined.isoformat(),
+    }
+    
+    return JsonResponse(data)
+
+
+@login_required
+def admin_bulk_action(request):
+    """Perform bulk actions on users"""
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    if not request.user.admin_role.can_manage_users:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    if request.method == 'POST':
+        import json
+        data = json.loads(request.body)
+        
+        action = data.get('action')
+        user_ids = data.get('user_ids', [])
+        
+        if not user_ids:
+            return JsonResponse({'error': 'No users selected'}, status=400)
+        
+        # Exclude self from bulk actions
+        user_ids = [uid for uid in user_ids if uid != request.user.id]
+        
+        try:
+            if action == 'activate':
+                User.objects.filter(id__in=user_ids).update(is_active=True)
+                message = f"Activated {len(user_ids)} users"
+                
+            elif action == 'deactivate':
+                User.objects.filter(id__in=user_ids).update(is_active=False)
+                message = f"Deactivated {len(user_ids)} users"
+                
+            elif action == 'delete' and request.user.admin_role.can_delete_content:
+                # Don't delete superusers
+                users_to_delete = User.objects.filter(
+                    id__in=user_ids,
+                    is_superuser=False
+                )
+                count = users_to_delete.count()
+                users_to_delete.delete()
+                message = f"Deleted {count} users"
+            else:
+                return JsonResponse({'error': 'Invalid action'}, status=400)
+            
+            # Log activity
+            UserActivity.objects.create(
+                user=request.user,
+                activity_type='bulk_action',
+                description=f"Bulk action: {action} on {len(user_ids)} users"
+            )
+            
+            return JsonResponse({'success': True, 'message': message})
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Invalid request'}, status=400)

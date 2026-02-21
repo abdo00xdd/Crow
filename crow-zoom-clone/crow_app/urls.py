@@ -49,4 +49,14 @@ urlpatterns = [
     path('admin-dashboard/analytics-api/', admin_views.admin_analytics_api, name='admin_analytics_api'),
     path('admin-dashboard/make-admin/<int:user_id>/', admin_views.make_admin, name='make_admin'),
 
+
+    # User Management
+    path('admin-dashboard/manage-users/', admin_views.admin_manage_users, name='admin_manage_users'),
+    path('admin-dashboard/create-user/', admin_views.admin_create_user, name='admin_create_user'),
+    path('admin-dashboard/edit-user/<int:user_id>/', admin_views.admin_edit_user, name='admin_edit_user'),
+    path('admin-dashboard/delete-user/<int:user_id>/', admin_views.admin_delete_user, name='admin_delete_user'),
+    path('admin-dashboard/toggle-status/<int:user_id>/', admin_views.admin_toggle_user_status, name='admin_toggle_user_status'),
+    path('admin-dashboard/get-user/<int:user_id>/', admin_views.admin_get_user_data, name='admin_get_user_data'),
+    path('admin-dashboard/bulk-action/', admin_views.admin_bulk_action, name='admin_bulk_action'),
+
 ]

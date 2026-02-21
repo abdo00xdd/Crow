@@ -851,6 +851,92 @@ def get_client_ip(request):
     return ip
 
 
+@login_required
+def video_room(request, room_id):
+    """
+    WebRTC Video Call Room
+    """
+    try:
+        # Try to get room
+        room = Room.objects.get(id=room_id)
+        
+        # Get or create meeting for this room
+        meeting, created = Meeting.objects.get_or_create(
+            room=room,
+            defaults={
+                'title': room.name,
+                'scheduled_time': timezone.now(),
+                'duration': 60
+            }
+        )
+        
+    except Room.DoesNotExist:
+        # Room doesn't exist, create it
+        room = Room.objects.create(
+            id=room_id,
+            name=f"Meeting Room - {room_id}",
+            host=request.user
+        )
+        meeting = Meeting.objects.create(
+            room=room,
+            title=room.name,
+            scheduled_time=timezone.now(),
+            duration=60
+        )
+    
+    # Add user as participant
+    meeting.participants.add(request.user)
+    
+    # Create meeting session
+    MeetingSession.objects.get_or_create(
+        user=request.user,
+        meeting=meeting,
+        room=room,
+        defaults={
+            'joined_at': timezone.now()
+        }
+    )
+    
+    # Get all participants
+    participants = meeting.participants.all()
+    
+    context = {
+        'room': room,
+        'meeting': meeting,
+        'room_id': str(room_id),
+        'user': request.user,
+        'participants': participants,
+        'is_host': room.host == request.user,
+    }
+    
+    return render(request, 'video_room.html', context)
+
+
+@login_required
+def leave_meeting(request, room_id):
+    """Handle leaving a meeting"""
+    try:
+        room = Room.objects.get(id=room_id)
+        meeting = Meeting.objects.filter(room=room).first()
+        
+        if meeting:
+            # Update meeting session
+            session = MeetingSession.objects.filter(
+                user=request.user,
+                meeting=meeting,
+                left_at__isnull=True
+            ).first()
+            
+            if session:
+                session.left_at = timezone.now()
+                session.save()
+            
+            # Remove from participants
+            meeting.participants.remove(request.user)
+    except:
+        pass
+    
+    return redirect('home')
 
 
 

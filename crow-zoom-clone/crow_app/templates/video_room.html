@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Video Call - {{ room.name }} | Crow{% endblock %}
+{% block title %}{{ room.name }} - Video Call | Crow{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -33,32 +33,25 @@
         gap: 8px;
         padding: 8px;
         position: relative;
+        overflow: hidden;
     }
 
-    /* Dynamic grid layouts based on participant count */
-    .video-grid.participants-1 {
-        grid-template-columns: 1fr;
-    }
-
-    .video-grid.participants-2 {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
+    /* Dynamic grid layouts */
+    .video-grid.participants-1 { grid-template-columns: 1fr; }
+    .video-grid.participants-2 { grid-template-columns: repeat(2, 1fr); }
     .video-grid.participants-3,
-    .video-grid.participants-4 {
+    .video-grid.participants-4 { 
         grid-template-columns: repeat(2, 1fr);
         grid-template-rows: repeat(2, 1fr);
     }
-
     .video-grid.participants-5,
-    .video-grid.participants-6 {
+    .video-grid.participants-6 { 
         grid-template-columns: repeat(3, 1fr);
         grid-template-rows: repeat(2, 1fr);
     }
-
     .video-grid.participants-7,
     .video-grid.participants-8,
-    .video-grid.participants-9 {
+    .video-grid.participants-9 { 
         grid-template-columns: repeat(3, 1fr);
         grid-template-rows: repeat(3, 1fr);
     }
@@ -79,10 +72,9 @@
     }
 
     .video-container.local video {
-        transform: scaleX(-1); /* Mirror local video */
+        transform: scaleX(-1);
     }
 
-    /* Video Overlay Info */
     .video-info {
         position: absolute;
         bottom: 12px;
@@ -98,7 +90,7 @@
         gap: 8px;
     }
 
-    .video-info .status-indicator {
+    .status-indicator {
         width: 8px;
         height: 8px;
         border-radius: 50%;
@@ -151,7 +143,7 @@
         background: #b91c1c;
     }
 
-    /* Room Info Header */
+    /* Room Header */
     .room-header {
         position: absolute;
         top: 20px;
@@ -168,46 +160,12 @@
         margin-bottom: 4px;
     }
 
-    .room-header .participant-count {
+    .participant-count {
         font-size: 14px;
         color: #9ca3af;
     }
 
-    /* Connection Status */
-    .connection-status {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 8px 16px;
-        border-radius: 20px;
-        color: white;
-        font-size: 14px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        z-index: 10;
-    }
-
-    .connection-status .dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: #10b981;
-        animation: pulse 2s infinite;
-    }
-
-    .connection-status.disconnected .dot {
-        background: #ef4444;
-        animation: none;
-    }
-
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-    }
-
-    /* Loading State */
+    /* Loading */
     .loading-overlay {
         position: fixed;
         top: 0;
@@ -241,85 +199,7 @@
         to { transform: rotate(360deg); }
     }
 
-    /* Chat Sidebar */
-    .chat-sidebar {
-        position: fixed;
-        right: -350px;
-        top: 0;
-        width: 350px;
-        height: 100vh;
-        background: rgba(0, 0, 0, 0.95);
-        transition: right 0.3s;
-        z-index: 50;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .chat-sidebar.open {
-        right: 0;
-    }
-
-    .chat-header {
-        padding: 20px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        color: white;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .chat-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px;
-    }
-
-    .chat-message {
-        margin-bottom: 12px;
-        color: white;
-    }
-
-    .chat-message .sender {
-        font-weight: 600;
-        font-size: 14px;
-        margin-bottom: 4px;
-        color: #2563eb;
-    }
-
-    .chat-message .text {
-        background: rgba(255, 255, 255, 0.1);
-        padding: 8px 12px;
-        border-radius: 8px;
-        font-size: 14px;
-    }
-
-    .chat-input {
-        padding: 20px;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        display: flex;
-        gap: 8px;
-    }
-
-    .chat-input input {
-        flex: 1;
-        background: rgba(255, 255, 255, 0.1);
-        border: none;
-        padding: 12px;
-        border-radius: 8px;
-        color: white;
-        outline: none;
-    }
-
-    .chat-input button {
-        background: #2563eb;
-        border: none;
-        padding: 12px 20px;
-        border-radius: 8px;
-        color: white;
-        cursor: pointer;
-    }
-
-    /* Notification Toast */
+    /* Toast */
     .toast {
         position: fixed;
         bottom: 100px;
@@ -346,11 +226,6 @@
 
     /* Responsive */
     @media (max-width: 768px) {
-        .chat-sidebar {
-            width: 100%;
-            right: -100%;
-        }
-
         .control-btn {
             width: 48px;
             height: 48px;
@@ -371,20 +246,14 @@
     <!-- Room Header -->
     <div class="room-header">
         <h2>{{ room.name }}</h2>
-        <div class="participant-count" id="participantCount">
-            <i class="fas fa-users"></i> <span id="count">1</span> participant(s)
+        <div class="participant-count">
+            <i class="fas fa-users"></i> <span id="participantCount">{{ participants.count }}</span> participant(s)
         </div>
-    </div>
-
-    <!-- Connection Status -->
-    <div class="connection-status" id="connectionStatus">
-        <div class="dot"></div>
-        <span>Connected</span>
     </div>
 
     <!-- Video Grid -->
     <div class="video-grid participants-1" id="videoGrid">
-        <!-- Local video will be added here -->
+        <!-- Videos will be added here dynamically -->
     </div>
 
     <!-- Control Bar -->
@@ -397,10 +266,6 @@
             <i class="fas fa-microphone"></i>
         </button>
         
-        <button class="control-btn" id="toggleChat" title="Toggle Chat">
-            <i class="fas fa-comment"></i>
-        </button>
-        
         <button class="control-btn" id="shareScreen" title="Share Screen">
             <i class="fas fa-desktop"></i>
         </button>
@@ -408,28 +273,6 @@
         <button class="control-btn danger" id="leaveRoom" title="Leave Room">
             <i class="fas fa-phone-slash"></i>
         </button>
-    </div>
-
-    <!-- Chat Sidebar -->
-    <div class="chat-sidebar" id="chatSidebar">
-        <div class="chat-header">
-            <h3>Chat</h3>
-            <button class="control-btn" onclick="toggleChat()" style="width: 36px; height: 36px; font-size: 16px;">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="chat-messages" id="chatMessages">
-            <div class="chat-message">
-                <div class="sender">System</div>
-                <div class="text">Welcome to the video call! Chat messages will appear here.</div>
-            </div>
-        </div>
-        <div class="chat-input">
-            <input type="text" id="chatInput" placeholder="Type a message...">
-            <button onclick="sendChatMessage()">
-                <i class="fas fa-paper-plane"></i>
-            </button>
-        </div>
     </div>
 </div>
 {% endblock %}
@@ -449,40 +292,39 @@ let localStream = null;
 let peers = {};
 let isVideoEnabled = true;
 let isAudioEnabled = true;
-let isChatOpen = false;
-let dataChannel = null;
+let ws = null;
 
 // Room Info
-const roomId = '{{ room.id }}';
+const roomId = '{{ room_id }}';
 const username = '{{ user.username }}';
+const userId = '{{ user.id }}';
 
 // DOM Elements
 const videoGrid = document.getElementById('videoGrid');
 const loadingOverlay = document.getElementById('loadingOverlay');
-const participantCount = document.getElementById('count');
+const participantCount = document.getElementById('participantCount');
 const toggleVideoBtn = document.getElementById('toggleVideo');
 const toggleAudioBtn = document.getElementById('toggleAudio');
-const toggleChatBtn = document.getElementById('toggleChat');
 const shareScreenBtn = document.getElementById('shareScreen');
 const leaveRoomBtn = document.getElementById('leaveRoom');
-const chatSidebar = document.getElementById('chatSidebar');
-const chatMessages = document.getElementById('chatMessages');
-const chatInput = document.getElementById('chatInput');
 
-// Initialize on page load
+// Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         await initializeMedia();
-        await connectToRoom();
+        connectWebSocket();
         setupEventListeners();
         loadingOverlay.classList.add('hidden');
     } catch (error) {
         console.error('Initialization error:', error);
-        showToast('Failed to initialize video call: ' + error.message);
+        showToast('Failed to initialize: ' + error.message);
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 3000);
     }
 });
 
-// Initialize Media (Camera & Microphone)
+// Initialize Media
 async function initializeMedia() {
     try {
         localStream = await navigator.mediaDevices.getUserMedia({
@@ -497,9 +339,7 @@ async function initializeMedia() {
             }
         });
 
-        // Add local video to grid
-        addVideoStream(localStream, username, true);
-        
+        addVideoStream(localStream, userId, username, true);
         showToast('Camera and microphone connected');
     } catch (error) {
         console.error('Media error:', error);
@@ -507,25 +347,31 @@ async function initializeMedia() {
     }
 }
 
-// Add video stream to grid
-function addVideoStream(stream, participantName, isLocal = false) {
+// Add Video Stream
+function addVideoStream(stream, peerId, peerName, isLocal = false) {
+    // Remove existing video for this peer
+    const existing = document.getElementById(`video-${peerId}`);
+    if (existing) {
+        existing.remove();
+    }
+
     const videoContainer = document.createElement('div');
     videoContainer.className = 'video-container' + (isLocal ? ' local' : '');
-    videoContainer.id = isLocal ? 'local-video' : `peer-${participantName}`;
+    videoContainer.id = `video-${peerId}`;
 
     const video = document.createElement('video');
     video.srcObject = stream;
     video.autoplay = true;
     video.playsInline = true;
     if (isLocal) {
-        video.muted = true; // Mute local video to prevent feedback
+        video.muted = true;
     }
 
     const info = document.createElement('div');
     info.className = 'video-info';
     info.innerHTML = `
         <span class="status-indicator"></span>
-        <span>${isLocal ? 'You' : participantName}</span>
+        <span>${isLocal ? 'You' : peerName}</span>
     `;
 
     videoContainer.appendChild(video);
@@ -535,34 +381,199 @@ function addVideoStream(stream, participantName, isLocal = false) {
     updateGridLayout();
 }
 
-// Update grid layout based on participant count
+// Remove Video Stream
+function removeVideoStream(peerId) {
+    const videoElement = document.getElementById(`video-${peerId}`);
+    if (videoElement) {
+        videoElement.remove();
+        updateGridLayout();
+    }
+}
+
+// Update Grid Layout
 function updateGridLayout() {
     const videoContainers = videoGrid.querySelectorAll('.video-container');
     const count = videoContainers.length;
     
     participantCount.textContent = count;
     
-    // Remove all participant classes
     videoGrid.className = 'video-grid';
-    
-    // Add appropriate class for current count
     videoGrid.classList.add(`participants-${Math.min(count, 9)}`);
 }
 
-// Connect to Room (WebSocket signaling)
-async function connectToRoom() {
-    // For now, we'll use a simple signaling setup
-    // In production, you'd connect to a WebSocket server
-    showToast('Connected to room');
+// WebSocket Connection
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/video/${roomId}/`;
     
-    // TODO: Implement WebSocket signaling for peer discovery
-    // This would handle:
-    // - Announcing presence to other peers
-    // - Receiving peer list
-    // - Exchanging ICE candidates and SDP offers/answers
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+        console.log('WebSocket connected');
+        showToast('Connected to room');
+        
+        // Announce presence
+        sendSignal({
+            type: 'join',
+            userId: userId,
+            username: username
+        });
+    };
+    
+    ws.onmessage = async (event) => {
+        const data = JSON.parse(event.data);
+        console.log('Received:', data);
+        
+        switch(data.type) {
+            case 'user-joined':
+                handleUserJoined(data);
+                break;
+            case 'user-left':
+                handleUserLeft(data);
+                break;
+            case 'offer':
+                handleOffer(data);
+                break;
+            case 'answer':
+                handleAnswer(data);
+                break;
+            case 'ice-candidate':
+                handleIceCandidate(data);
+                break;
+        }
+    };
+    
+    ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        showToast('Disconnected from room');
+    };
+    
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+    };
 }
 
-// Toggle Video
+// Send Signal
+function sendSignal(data) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(data));
+    }
+}
+
+// Handle User Joined
+async function handleUserJoined(data) {
+    if (data.userId === userId) return;
+    
+    console.log('User joined:', data.username);
+    showToast(`${data.username} joined`);
+    
+    // Create peer connection and send offer
+    const peerConnection = createPeerConnection(data.userId, data.username);
+    peers[data.userId] = peerConnection;
+    
+    // Add local stream
+    localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+    });
+    
+    // Create and send offer
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    
+    sendSignal({
+        type: 'offer',
+        target: data.userId,
+        offer: offer
+    });
+}
+
+// Handle User Left
+function handleUserLeft(data) {
+    if (data.userId === userId) return;
+    
+    console.log('User left:', data.username);
+    showToast(`${data.username} left`);
+    
+    // Close peer connection
+    if (peers[data.userId]) {
+        peers[data.userId].close();
+        delete peers[data.userId];
+    }
+    
+    // Remove video
+    removeVideoStream(data.userId);
+}
+
+// Handle Offer
+async function handleOffer(data) {
+    console.log('Received offer from:', data.sender);
+    
+    // Create peer connection
+    const peerConnection = createPeerConnection(data.sender, data.senderName || 'User');
+    peers[data.sender] = peerConnection;
+    
+    // Add local stream
+    localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+    });
+    
+    // Set remote description
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+    
+    // Create and send answer
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    
+    sendSignal({
+        type: 'answer',
+        target: data.sender,
+        answer: answer
+    });
+}
+
+// Handle Answer
+async function handleAnswer(data) {
+    console.log('Received answer from:', data.sender);
+    
+    const peerConnection = peers[data.sender];
+    if (peerConnection) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+    }
+}
+
+// Handle ICE Candidate
+async function handleIceCandidate(data) {
+    const peerConnection = peers[data.sender];
+    if (peerConnection && data.candidate) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+    }
+}
+
+// Create Peer Connection
+function createPeerConnection(peerId, peerName) {
+    const peerConnection = new RTCPeerConnection(configuration);
+    
+    // Handle ICE candidates
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            sendSignal({
+                type: 'ice-candidate',
+                target: peerId,
+                candidate: event.candidate
+            });
+        }
+    };
+    
+    // Handle incoming tracks
+    peerConnection.ontrack = (event) => {
+        console.log('Received track from:', peerId);
+        addVideoStream(event.streams[0], peerId, peerName, false);
+    };
+    
+    return peerConnection;
+}
+
+// Control Functions
 toggleVideoBtn.addEventListener('click', () => {
     isVideoEnabled = !isVideoEnabled;
     localStream.getVideoTracks().forEach(track => {
@@ -577,7 +588,6 @@ toggleVideoBtn.addEventListener('click', () => {
     showToast(isVideoEnabled ? 'Camera on' : 'Camera off');
 });
 
-// Toggle Audio
 toggleAudioBtn.addEventListener('click', () => {
     isAudioEnabled = !isAudioEnabled;
     localStream.getAudioTracks().forEach(track => {
@@ -589,7 +599,7 @@ toggleAudioBtn.addEventListener('click', () => {
         ? '<i class="fas fa-microphone"></i>' 
         : '<i class="fas fa-microphone-slash"></i>';
     
-    const localVideoInfo = document.querySelector('#local-video .video-info');
+    const localVideoInfo = document.querySelector('#video-' + userId + ' .video-info');
     if (localVideoInfo) {
         localVideoInfo.classList.toggle('muted', !isAudioEnabled);
     }
@@ -597,16 +607,6 @@ toggleAudioBtn.addEventListener('click', () => {
     showToast(isAudioEnabled ? 'Microphone on' : 'Microphone off');
 });
 
-// Toggle Chat
-toggleChatBtn.addEventListener('click', toggleChat);
-
-function toggleChat() {
-    isChatOpen = !isChatOpen;
-    chatSidebar.classList.toggle('open');
-    toggleChatBtn.classList.toggle('active');
-}
-
-// Share Screen
 shareScreenBtn.addEventListener('click', async () => {
     try {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
@@ -614,19 +614,19 @@ shareScreenBtn.addEventListener('click', async () => {
             audio: false
         });
 
-        // Replace video track with screen share
         const screenTrack = screenStream.getVideoTracks()[0];
-        const localVideo = document.querySelector('#local-video video');
         
-        if (localVideo && localVideo.srcObject) {
-            const sender = Object.values(peers).find(p => p.getSenders)?.getSenders()
-                .find(s => s.track && s.track.kind === 'video');
-            
+        // Replace video track in all peer connections
+        Object.values(peers).forEach(peerConnection => {
+            const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
             if (sender) {
                 sender.replaceTrack(screenTrack);
             }
-            
-            // Update local video
+        });
+        
+        // Update local video
+        const localVideo = document.querySelector('#video-' + userId + ' video');
+        if (localVideo) {
             const oldTrack = localStream.getVideoTracks()[0];
             localStream.removeTrack(oldTrack);
             localStream.addTrack(screenTrack);
@@ -649,14 +649,19 @@ shareScreenBtn.addEventListener('click', async () => {
 
 async function stopScreenShare() {
     try {
-        const newStream = await navigator.mediaDevices.getUserMedia({ 
-            video: true, 
-            audio: true 
+        const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const videoTrack = newStream.getVideoTracks()[0];
+        
+        // Replace in peer connections
+        Object.values(peers).forEach(peerConnection => {
+            const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+            if (sender) {
+                sender.replaceTrack(videoTrack);
+            }
         });
         
-        const videoTrack = newStream.getVideoTracks()[0];
-        const localVideo = document.querySelector('#local-video video');
-        
+        // Update local video
+        const localVideo = document.querySelector('#video-' + userId + ' video');
         if (localVideo) {
             const oldTrack = localStream.getVideoTracks()[0];
             localStream.removeTrack(oldTrack);
@@ -671,7 +676,6 @@ async function stopScreenShare() {
     }
 }
 
-// Leave Room
 leaveRoomBtn.addEventListener('click', () => {
     if (confirm('Are you sure you want to leave this call?')) {
         leaveRoom();
@@ -686,48 +690,26 @@ function leaveRoom() {
 
     // Close all peer connections
     Object.values(peers).forEach(peer => {
-        if (peer.close) peer.close();
+        peer.close();
     });
 
-    // Redirect to home
-    window.location.href = '/';
-}
-
-// Chat Functions
-chatInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        sendChatMessage();
+    // Close WebSocket
+    if (ws) {
+        ws.close();
     }
-});
 
-function sendChatMessage() {
-    const message = chatInput.value.trim();
-    if (!message) return;
-
-    addChatMessage(username, message);
-    chatInput.value = '';
-
-    // TODO: Send message to other peers via data channel
+    // Redirect
+    window.location.href = '/leave-meeting/{{ room_id }}/';
 }
 
-function addChatMessage(sender, text) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'chat-message';
-    messageDiv.innerHTML = `
-        <div class="sender">${sender}</div>
-        <div class="text">${escapeHtml(text)}</div>
-    `;
-    chatMessages.appendChild(messageDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+function setupEventListeners() {
+    window.addEventListener('beforeunload', () => {
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+    });
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// Show Toast Notification
 function showToast(message) {
     const toast = document.createElement('div');
     toast.className = 'toast';
@@ -738,31 +720,5 @@ function showToast(message) {
         toast.remove();
     }, 3000);
 }
-
-// Setup Event Listeners
-function setupEventListeners() {
-    // Handle page unload
-    window.addEventListener('beforeunload', () => {
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
-    });
-
-    // Handle visibility change (tab switching)
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            console.log('Tab hidden');
-        } else {
-            console.log('Tab visible');
-        }
-    });
-}
-
-// Demo: Add a fake peer for testing
-setTimeout(() => {
-    // Simulate another participant joining
-    // In production, this would happen when receiving signals from other peers
-    console.log('Room initialized. Waiting for other participants...');
-}, 2000);
 </script>
 {% endblock %}

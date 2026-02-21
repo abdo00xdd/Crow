@@ -59,7 +59,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'crow_project.wsgi.application'
-ASGI_APPLICATION = 'crow_project.asgi.application'  # Fixed from 'your_project'
 
 DATABASES = {
     'default': {
@@ -105,5 +104,9 @@ CHANNEL_LAYERS = {
         },
     },
 }
-
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 # REMOVED the duplicate ASGI_APPLICATION line that was at the bottom

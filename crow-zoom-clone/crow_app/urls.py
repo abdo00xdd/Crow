@@ -59,4 +59,8 @@ urlpatterns = [
     path('admin-dashboard/get-user/<int:user_id>/', admin_views.admin_get_user_data, name='admin_get_user_data'),
     path('admin-dashboard/bulk-action/', admin_views.admin_bulk_action, name='admin_bulk_action'),
 
+    # Video Calling
+    path('video/<int:room_id>/', views.video_room, name='video_room'),
+    path('leave-meeting/<uuid:room_id>/', views.leave_meeting, name='leave_meeting'),
+
 ]

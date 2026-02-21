@@ -273,6 +273,9 @@
         <button class="control-btn danger" id="leaveRoom" title="Leave Room">
             <i class="fas fa-phone-slash"></i>
         </button>
+        <button class="control-btn" id="fullscreenBtn" title="Fullscreen">
+    <i class="fas fa-expand"></i>
+</button>
     </div>
 </div>
 {% endblock %}
@@ -720,5 +723,42 @@ function showToast(message) {
         toast.remove();
     }, 3000);
 }
+// Fullscreen functionality
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+const header = document.querySelector('.header');
+const footer = document.querySelector('.footer');
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        // Enter fullscreen
+        document.documentElement.requestFullscreen();
+        fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+        if (header) header.style.display = 'none';
+        if (footer) footer.style.display = 'none';
+    } else {
+        // Exit fullscreen
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+            fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+            if (header) header.style.display = '';   // restore default display
+            if (footer) footer.style.display = '';
+        }
+    }
+}
+
+fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+// Listen for fullscreen changes (e.g., pressing Esc)
+document.addEventListener('fullscreenchange', () => {
+    if (document.fullscreenElement) {
+        fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+        if (header) header.style.display = 'none';
+        if (footer) footer.style.display = 'none';
+    } else {
+        fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+        if (header) header.style.display = '';
+        if (footer) footer.style.display = '';
+    }
+});
 </script>
 {% endblock %}

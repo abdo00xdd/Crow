@@ -61,6 +61,7 @@ urlpatterns = [
 
     # Video Calling
     path('video/<int:room_id>/', views.video_room, name='video_room'),
-    path('leave-meeting/<uuid:room_id>/', views.leave_meeting, name='leave_meeting'),
+    path('leave-meeting/<int:room_id>/', views.leave_meeting, name='leave_meeting'),
+    
 
 ]

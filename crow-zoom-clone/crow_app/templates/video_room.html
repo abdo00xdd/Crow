@@ -302,6 +302,8 @@ const roomId = '{{ room_id }}';
 const username = '{{ user.username }}';
 const userId = '{{ user.id }}';
 
+console.log('🔵 Initializing video room:', { roomId, username, userId });
+
 // DOM Elements
 const videoGrid = document.getElementById('videoGrid');
 const loadingOverlay = document.getElementById('loadingOverlay');
@@ -314,12 +316,14 @@ const leaveRoomBtn = document.getElementById('leaveRoom');
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     try {
+        console.log('🟢 DOM loaded, initializing media...');
         await initializeMedia();
         connectWebSocket();
         setupEventListeners();
         loadingOverlay.classList.add('hidden');
+        console.log('✅ Initialization complete');
     } catch (error) {
-        console.error('Initialization error:', error);
+        console.error('❌ Initialization error:', error);
         showToast('Failed to initialize: ' + error.message);
         setTimeout(() => {
             window.location.href = '/';
@@ -330,6 +334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Initialize Media
 async function initializeMedia() {
     try {
+        console.log('🎥 Requesting camera/microphone access...');
         localStream = await navigator.mediaDevices.getUserMedia({
             video: {
                 width: { ideal: 1280 },
@@ -341,17 +346,20 @@ async function initializeMedia() {
                 autoGainControl: true
             }
         });
+        console.log('✅ Media access granted:', localStream.getTracks().map(t => t.kind).join(', '));
 
         addVideoStream(localStream, userId, username, true);
         showToast('Camera and microphone connected');
     } catch (error) {
-        console.error('Media error:', error);
+        console.error('❌ Media error:', error);
         throw new Error('Could not access camera/microphone. Please grant permissions.');
     }
 }
 
 // Add Video Stream
 function addVideoStream(stream, peerId, peerName, isLocal = false) {
+    console.log(`📹 Adding video stream for ${isLocal ? 'self' : peerName} (${peerId})`);
+    
     // Remove existing video for this peer
     const existing = document.getElementById(`video-${peerId}`);
     if (existing) {
@@ -386,6 +394,7 @@ function addVideoStream(stream, peerId, peerName, isLocal = false) {
 
 // Remove Video Stream
 function removeVideoStream(peerId) {
+    console.log(`🗑️ Removing video stream for peer ${peerId}`);
     const videoElement = document.getElementById(`video-${peerId}`);
     if (videoElement) {
         videoElement.remove();
@@ -402,6 +411,7 @@ function updateGridLayout() {
     
     videoGrid.className = 'video-grid';
     videoGrid.classList.add(`participants-${Math.min(count, 9)}`);
+    console.log(`📊 Grid updated: ${count} participant(s)`);
 }
 
 // WebSocket Connection
@@ -409,13 +419,15 @@ function connectWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/video/${roomId}/`;
     
+    console.log('🔌 Connecting to WebSocket:', wsUrl);
     ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('✅ WebSocket connected');
         showToast('Connected to room');
         
         // Announce presence
+        console.log('📤 Sending join signal');
         sendSignal({
             type: 'join',
             userId: userId,
@@ -425,7 +437,7 @@ function connectWebSocket() {
     
     ws.onmessage = async (event) => {
         const data = JSON.parse(event.data);
-        console.log('Received:', data);
+        console.log('📩 Received:', data);
         
         switch(data.type) {
             case 'user-joined':
@@ -435,31 +447,36 @@ function connectWebSocket() {
                 handleUserLeft(data);
                 break;
             case 'offer':
-                handleOffer(data);
+                await handleOffer(data);
                 break;
             case 'answer':
-                handleAnswer(data);
+                await handleAnswer(data);
                 break;
             case 'ice-candidate':
-                handleIceCandidate(data);
+                await handleIceCandidate(data);
                 break;
+            default:
+                console.log('Unknown message type:', data.type);
         }
     };
     
-    ws.onclose = () => {
-        console.log('WebSocket disconnected');
+    ws.onclose = (event) => {
+        console.log('❌ WebSocket disconnected:', event.code, event.reason);
         showToast('Disconnected from room');
     };
     
     ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('❌ WebSocket error:', error);
     };
 }
 
 // Send Signal
 function sendSignal(data) {
     if (ws && ws.readyState === WebSocket.OPEN) {
+        console.log('📤 Sending:', data);
         ws.send(JSON.stringify(data));
+    } else {
+        console.warn('⚠️ WebSocket not open, cannot send:', data);
     }
 }
 
@@ -467,21 +484,25 @@ function sendSignal(data) {
 async function handleUserJoined(data) {
     if (data.userId === userId) return;
     
-    console.log('User joined:', data.username);
+    console.log('👋 User joined:', data.username, data.userId);
     showToast(`${data.username} joined`);
     
     // Create peer connection and send offer
+    console.log('🔧 Creating peer connection for:', data.userId);
     const peerConnection = createPeerConnection(data.userId, data.username);
     peers[data.userId] = peerConnection;
     
     // Add local stream
     localStream.getTracks().forEach(track => {
+        console.log(`➕ Adding ${track.kind} track to peer connection`);
         peerConnection.addTrack(track, localStream);
     });
     
     // Create and send offer
+    console.log('📤 Creating offer for:', data.userId);
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
+    console.log('✅ Local description set (offer)');
     
     sendSignal({
         type: 'offer',
@@ -494,11 +515,12 @@ async function handleUserJoined(data) {
 function handleUserLeft(data) {
     if (data.userId === userId) return;
     
-    console.log('User left:', data.username);
+    console.log('👋 User left:', data.username);
     showToast(`${data.username} left`);
     
     // Close peer connection
     if (peers[data.userId]) {
+        console.log('🔌 Closing peer connection for:', data.userId);
         peers[data.userId].close();
         delete peers[data.userId];
     }
@@ -509,23 +531,28 @@ function handleUserLeft(data) {
 
 // Handle Offer
 async function handleOffer(data) {
-    console.log('Received offer from:', data.sender);
+    console.log('📨 Received offer from:', data.sender, data.senderName);
     
     // Create peer connection
+    console.log('🔧 Creating peer connection for:', data.sender);
     const peerConnection = createPeerConnection(data.sender, data.senderName || 'User');
     peers[data.sender] = peerConnection;
     
     // Add local stream
     localStream.getTracks().forEach(track => {
+        console.log(`➕ Adding ${track.kind} track to peer connection`);
         peerConnection.addTrack(track, localStream);
     });
     
     // Set remote description
+    console.log('📥 Setting remote description (offer)');
     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
     
     // Create and send answer
+    console.log('📤 Creating answer');
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
+    console.log('✅ Local description set (answer)');
     
     sendSignal({
         type: 'answer',
@@ -536,29 +563,38 @@ async function handleOffer(data) {
 
 // Handle Answer
 async function handleAnswer(data) {
-    console.log('Received answer from:', data.sender);
+    console.log('📨 Received answer from:', data.sender);
     
     const peerConnection = peers[data.sender];
     if (peerConnection) {
+        console.log('📥 Setting remote description (answer)');
         await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        console.log('✅ Remote description set');
+    } else {
+        console.warn('⚠️ No peer connection found for:', data.sender);
     }
 }
 
 // Handle ICE Candidate
 async function handleIceCandidate(data) {
+    console.log('🧊 Received ICE candidate from:', data.sender);
+    
     const peerConnection = peers[data.sender];
     if (peerConnection && data.candidate) {
+        console.log('➕ Adding ICE candidate');
         await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
     }
 }
 
 // Create Peer Connection
 function createPeerConnection(peerId, peerName) {
+    console.log('🔨 Creating new RTCPeerConnection for:', peerId);
     const peerConnection = new RTCPeerConnection(configuration);
     
     // Handle ICE candidates
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
+            console.log('🧊 ICE candidate generated for:', peerId);
             sendSignal({
                 type: 'ice-candidate',
                 target: peerId,
@@ -567,10 +603,22 @@ function createPeerConnection(peerId, peerName) {
         }
     };
     
+    // Handle connection state changes
+    peerConnection.onconnectionstatechange = () => {
+        console.log(`🔌 Connection state for ${peerId}: ${peerConnection.connectionState}`);
+    };
+    
+    peerConnection.oniceconnectionstatechange = () => {
+        console.log(`🧊 ICE connection state for ${peerId}: ${peerConnection.iceConnectionState}`);
+    };
+    
     // Handle incoming tracks
     peerConnection.ontrack = (event) => {
-        console.log('Received track from:', peerId);
-        addVideoStream(event.streams[0], peerId, peerName, false);
+        console.log('🎥 Received track from:', peerId, event.track.kind);
+        console.log('Streams:', event.streams.length);
+        if (event.streams[0]) {
+            addVideoStream(event.streams[0], peerId, peerName, false);
+        }
     };
     
     return peerConnection;
@@ -612,6 +660,7 @@ toggleAudioBtn.addEventListener('click', () => {
 
 shareScreenBtn.addEventListener('click', async () => {
     try {
+        console.log('🖥️ Starting screen share');
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
             video: { cursor: 'always' },
             audio: false
@@ -638,6 +687,7 @@ shareScreenBtn.addEventListener('click', async () => {
 
         // Handle when screen sharing stops
         screenTrack.addEventListener('ended', () => {
+            console.log('🖥️ Screen share ended');
             stopScreenShare();
         });
 
@@ -645,13 +695,14 @@ shareScreenBtn.addEventListener('click', async () => {
         showToast('Screen sharing started');
         
     } catch (error) {
-        console.error('Screen share error:', error);
+        console.error('❌ Screen share error:', error);
         showToast('Could not share screen');
     }
 });
 
 async function stopScreenShare() {
     try {
+        console.log('🔄 Stopping screen share, returning to camera');
         const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         const videoTrack = newStream.getVideoTracks()[0];
         
@@ -675,7 +726,7 @@ async function stopScreenShare() {
         shareScreenBtn.classList.remove('active');
         showToast('Screen sharing stopped');
     } catch (error) {
-        console.error('Error stopping screen share:', error);
+        console.error('❌ Error stopping screen share:', error);
     }
 }
 
@@ -686,6 +737,7 @@ leaveRoomBtn.addEventListener('click', () => {
 });
 
 function leaveRoom() {
+    console.log('👋 Leaving room');
     // Stop all tracks
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
@@ -714,6 +766,7 @@ function setupEventListeners() {
 }
 
 function showToast(message) {
+    console.log('📢 Toast:', message);
     const toast = document.createElement('div');
     toast.className = 'toast';
     toast.textContent = message;

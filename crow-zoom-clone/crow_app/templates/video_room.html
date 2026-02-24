@@ -232,6 +232,167 @@
             font-size: 18px;
         }
     }
+
+    /* ─── Drawing Feature ─────────────────────────────────────────── */
+    #drawingCanvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        pointer-events: none;
+        z-index: 50;
+    }
+
+    /* Hidden video feed for MediaPipe hand detection */
+    #drawingHiddenVideo {
+        position: fixed;
+        bottom: -9999px;
+        left: -9999px;
+        width: 640px;
+        height: 480px;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    /* Drawing Toolbar */
+    #drawingToolbar {
+        position: fixed;
+        top: 50%;
+        right: 20px;
+        transform: translateY(-50%) translateX(100px);
+        background: rgba(15, 15, 20, 0.92);
+        border: 1px solid rgba(0, 212, 255, 0.2);
+        border-radius: 16px;
+        padding: 16px 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        z-index: 60;
+        backdrop-filter: blur(12px);
+        box-shadow: 0 0 24px rgba(0, 212, 255, 0.1);
+        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    #drawingToolbar.visible {
+        transform: translateY(-50%) translateX(0);
+        opacity: 1;
+        pointer-events: all;
+    }
+
+    .draw-toolbar-label {
+        font-size: 10px;
+        color: rgba(255,255,255,0.4);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-family: monospace;
+    }
+
+    .draw-tool-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.1);
+        background: rgba(255,255,255,0.05);
+        color: rgba(255,255,255,0.7);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        transition: all 0.2s;
+    }
+
+    .draw-tool-btn:hover {
+        background: rgba(255,255,255,0.12);
+        color: white;
+    }
+
+    .draw-tool-btn.active {
+        background: rgba(0, 212, 255, 0.2);
+        border-color: rgba(0, 212, 255, 0.6);
+        color: #00d4ff;
+        box-shadow: 0 0 12px rgba(0, 212, 255, 0.2);
+    }
+
+    #drawColorPicker {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 2px solid rgba(255,255,255,0.2);
+        background: none;
+        cursor: pointer;
+        padding: 2px;
+        overflow: hidden;
+    }
+
+    #drawColorPicker::-webkit-color-swatch-wrapper { padding: 0; }
+    #drawColorPicker::-webkit-color-swatch { border-radius: 50%; border: none; }
+
+    .draw-size-row {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+    }
+
+    #drawBrushSize {
+        -webkit-appearance: none;
+        width: 80px;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255,255,255,0.15);
+        outline: none;
+        cursor: pointer;
+    }
+
+    #drawBrushSize::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #00d4ff;
+        cursor: pointer;
+        box-shadow: 0 0 6px rgba(0, 212, 255, 0.5);
+    }
+
+    .toolbar-divider {
+        width: 32px;
+        height: 1px;
+        background: rgba(255,255,255,0.1);
+    }
+
+    #drawClearBtn {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+
+    #drawClearBtn:hover {
+        background: rgba(239, 68, 68, 0.25);
+        border-color: rgba(239, 68, 68, 0.6);
+    }
+
+    /* Drawing button glow when active */
+    #drawingBtn.active {
+        background: rgba(0, 212, 255, 0.25);
+        border: 1px solid rgba(0, 212, 255, 0.5);
+        box-shadow: 0 0 16px rgba(0, 212, 255, 0.3);
+        color: #00d4ff;
+    }
 </style>
 {% endblock %}
 
@@ -276,7 +437,45 @@
         <button class="control-btn" id="fullscreenBtn" title="Fullscreen">
     <i class="fas fa-expand"></i>
 </button>
+
+        <!-- ✏️ Drawing Toggle Button -->
+        <button class="control-btn" id="drawingBtn" title="Toggle Drawing Mode">
+            <i class="fas fa-pen"></i>
+        </button>
     </div>
+</div>
+
+<!-- ✏️ Drawing Canvas Overlay -->
+<canvas id="drawingCanvas"></canvas>
+
+<!-- ✏️ Hidden video feed for MediaPipe hand tracking -->
+<video id="drawingHiddenVideo" playsinline autoplay muted></video>
+
+<!-- ✏️ Drawing Toolbar -->
+<div id="drawingToolbar">
+    <span class="draw-toolbar-label">Tools</span>
+
+    <button class="draw-tool-btn active" id="drawToolPen" title="Pen">
+        <i class="fas fa-pen"></i>
+    </button>
+    <button class="draw-tool-btn" id="drawToolEraser" title="Eraser">
+        <i class="fas fa-eraser"></i>
+    </button>
+
+    <div class="toolbar-divider"></div>
+    <span class="draw-toolbar-label">Color</span>
+    <input type="color" id="drawColorPicker" value="#00d4ff" title="Pick Color">
+
+    <div class="toolbar-divider"></div>
+    <div class="draw-size-row">
+        <span class="draw-toolbar-label">Size: <span id="brushSizeLabel">4</span></span>
+        <input type="range" id="drawBrushSize" min="1" max="20" value="4">
+    </div>
+
+    <div class="toolbar-divider"></div>
+    <button id="drawClearBtn" title="Clear Canvas">
+        <i class="fas fa-trash"></i>
+    </button>
 </div>
 {% endblock %}
 
@@ -454,6 +653,9 @@ function connectWebSocket() {
                 break;
             case 'ice-candidate':
                 await handleIceCandidate(data);
+                break;
+            case 'draw':                          // ✏️ Drawing sync
+                handleDrawMessage(data.data);
                 break;
             default:
                 console.log('Unknown message type:', data.type);
@@ -814,4 +1016,300 @@ document.addEventListener('fullscreenchange', () => {
     }
 });
 </script>
+
+<!-- ✏️ Drawing Feature -->
+<script >// ✏️ drawing.js - Finger Drawing Feature for Crow Video Room
+// Uses MediaPipe Hands for finger tracking + WebSocket for real-time sync
+
+// ─── State ───────────────────────────────────────────────────────────────────
+const drawingState = {
+    enabled: false,
+    isDrawing: false,
+    tool: 'pen',       // 'pen' | 'eraser'
+    color: '#00d4ff',
+    brushSize: 4,
+    lastX: null,
+    lastY: null,
+    hands: null,
+    camera: null,
+    animationId: null,
+    hiddenVideo: null,
+};
+
+// ─── Canvas Setup ─────────────────────────────────────────────────────────────
+let drawCanvas, drawCtx;
+
+function initDrawingCanvas() {
+    drawCanvas = document.getElementById('drawingCanvas');
+    if (!drawCanvas) return;
+    drawCtx = drawCanvas.getContext('2d');
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+}
+
+function resizeCanvas() {
+    if (!drawCanvas) return;
+    drawCanvas.width = window.innerWidth;
+    drawCanvas.height = window.innerHeight;
+}
+
+// ─── MediaPipe Setup ──────────────────────────────────────────────────────────
+async function initMediaPipe() {
+    // Load MediaPipe from CDN
+    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js');
+    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js');
+
+    drawingState.hiddenVideo = document.getElementById('drawingHiddenVideo');
+
+    drawingState.hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
+    });
+
+    drawingState.hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.7,
+    });
+
+    drawingState.hands.onResults(onHandResults);
+
+    drawingState.camera = new Camera(drawingState.hiddenVideo, {
+        onFrame: async () => {
+            if (drawingState.enabled) {
+                await drawingState.hands.send({ image: drawingState.hiddenVideo });
+            }
+        },
+        width: 640,
+        height: 480
+    });
+
+    await drawingState.camera.start();
+}
+
+// ─── Hand Detection Results ───────────────────────────────────────────────────
+function onHandResults(results) {
+    if (!drawingState.enabled || !results.multiHandLandmarks?.length) {
+        drawingState.isDrawing = false;
+        drawingState.lastX = null;
+        drawingState.lastY = null;
+        hideCursor();
+        return;
+    }
+
+    const landmarks = results.multiHandLandmarks[0];
+
+    // Index fingertip = landmark 8
+    // Middle fingertip = landmark 12
+    const indexTip = landmarks[8];
+    const middleTip = landmarks[12];
+    const indexMcp = landmarks[5];  // Index base
+
+    // Mirror X because camera is mirrored
+    const x = (1 - indexTip.x) * window.innerWidth;
+    const y = indexTip.y * window.innerHeight;
+
+    // Gesture: index UP + middle DOWN = draw
+    // (index tip above its base, middle tip below index tip = drawing mode)
+    const indexUp = indexTip.y < indexMcp.y - 0.05;
+    const middleDown = middleTip.y > indexTip.y + 0.03;
+    const shouldDraw = indexUp && middleDown;
+
+    // Show live cursor dot
+    showCursor(x, y, shouldDraw);
+
+    if (shouldDraw) {
+        if (drawingState.lastX !== null) {
+            drawLine(
+                drawingState.lastX,
+                drawingState.lastY,
+                x, y,
+                drawingState.color,
+                drawingState.brushSize,
+                drawingState.tool,
+                true // broadcast
+            );
+        }
+        drawingState.lastX = x;
+        drawingState.lastY = y;
+        drawingState.isDrawing = true;
+    } else {
+        drawingState.lastX = null;
+        drawingState.lastY = null;
+        drawingState.isDrawing = false;
+    }
+}
+
+// ─── Drawing Functions ────────────────────────────────────────────────────────
+function drawLine(x1, y1, x2, y2, color, size, tool, broadcast = false) {
+    if (!drawCtx) return;
+
+    drawCtx.save();
+    drawCtx.beginPath();
+    drawCtx.moveTo(x1, y1);
+    drawCtx.lineTo(x2, y2);
+    drawCtx.strokeStyle = tool === 'eraser' ? 'rgba(0,0,0,1)' : color;
+    drawCtx.lineWidth = tool === 'eraser' ? size * 6 : size;
+    drawCtx.lineCap = 'round';
+    drawCtx.lineJoin = 'round';
+
+    if (tool === 'eraser') {
+        drawCtx.globalCompositeOperation = 'destination-out';
+    } else {
+        drawCtx.globalCompositeOperation = 'source-over';
+        // Glow effect
+        drawCtx.shadowBlur = 8;
+        drawCtx.shadowColor = color;
+    }
+
+    drawCtx.stroke();
+    drawCtx.restore();
+
+    if (broadcast) {
+        broadcastDraw({ x1, y1, x2, y2, color, size, tool });
+    }
+}
+
+function clearCanvas(broadcast = false) {
+    if (drawCtx) {
+        drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    }
+    if (broadcast) {
+        broadcastDraw({ action: 'clear' });
+    }
+}
+
+// ─── Cursor Indicator ─────────────────────────────────────────────────────────
+function showCursor(x, y, active) {
+    let cursor = document.getElementById('drawCursor');
+    if (!cursor) {
+        cursor = document.createElement('div');
+        cursor.id = 'drawCursor';
+        cursor.style.cssText = `
+            position: fixed;
+            pointer-events: none;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.1s, height 0.1s;
+            z-index: 9999;
+        `;
+        document.body.appendChild(cursor);
+    }
+
+    const size = drawingState.tool === 'eraser' ? drawingState.brushSize * 6 : drawingState.brushSize * 2 + 8;
+    cursor.style.left = x + 'px';
+    cursor.style.top = y + 'px';
+    cursor.style.width = size + 'px';
+    cursor.style.height = size + 'px';
+    cursor.style.background = active
+        ? (drawingState.tool === 'eraser' ? 'rgba(255,255,255,0.3)' : drawingState.color + '80')
+        : 'transparent';
+    cursor.style.border = `2px solid ${drawingState.tool === 'eraser' ? '#fff' : drawingState.color}`;
+    cursor.style.display = 'block';
+}
+
+function hideCursor() {
+    const cursor = document.getElementById('drawCursor');
+    if (cursor) cursor.style.display = 'none';
+}
+
+// ─── WebSocket Broadcast ──────────────────────────────────────────────────────
+function broadcastDraw(data) {
+    if (typeof sendSignal === 'function') {
+        sendSignal({ type: 'draw', data });
+    }
+}
+
+// Call this from the main WS onmessage handler
+function handleDrawMessage(data) {
+    if (data.action === 'clear') {
+        clearCanvas(false);
+        return;
+    }
+    const { x1, y1, x2, y2, color, size, tool } = data;
+    drawLine(x1, y1, x2, y2, color, size, tool, false);
+}
+
+// ─── Toggle Drawing Mode ──────────────────────────────────────────────────────
+async function toggleDrawingMode() {
+    drawingState.enabled = !drawingState.enabled;
+    const btn = document.getElementById('drawingBtn');
+    const toolbar = document.getElementById('drawingToolbar');
+
+    if (drawingState.enabled) {
+        // First time: init mediapipe
+        if (!drawingState.hands) {
+            showToast('Loading hand tracking...');
+            try {
+                await initMediaPipe();
+                showToast('✋ Hand tracking ready! Point your index finger to draw');
+            } catch (e) {
+                console.error('MediaPipe init failed:', e);
+                showToast('Could not start hand tracking');
+                drawingState.enabled = false;
+                return;
+            }
+        }
+
+        btn.classList.add('active');
+        toolbar.classList.add('visible');
+        drawCanvas.style.pointerEvents = 'none';
+        showToast('✏️ Drawing mode ON — index finger up to draw, pinch off to pause');
+    } else {
+        btn.classList.remove('active');
+        toolbar.classList.remove('visible');
+        hideCursor();
+        drawingState.lastX = null;
+        drawingState.lastY = null;
+        showToast('Drawing mode OFF');
+    }
+}
+
+// ─── Toolbar Controls ─────────────────────────────────────────────────────────
+function initDrawingToolbar() {
+    document.getElementById('drawColorPicker').addEventListener('input', (e) => {
+        drawingState.color = e.target.value;
+    });
+
+    document.getElementById('drawBrushSize').addEventListener('input', (e) => {
+        drawingState.brushSize = parseInt(e.target.value);
+        document.getElementById('brushSizeLabel').textContent = e.target.value;
+    });
+
+    document.getElementById('drawToolPen').addEventListener('click', () => {
+        drawingState.tool = 'pen';
+        document.getElementById('drawToolPen').classList.add('active');
+        document.getElementById('drawToolEraser').classList.remove('active');
+    });
+
+    document.getElementById('drawToolEraser').addEventListener('click', () => {
+        drawingState.tool = 'eraser';
+        document.getElementById('drawToolEraser').classList.add('active');
+        document.getElementById('drawToolPen').classList.remove('active');
+    });
+
+    document.getElementById('drawClearBtn').addEventListener('click', () => {
+        clearCanvas(true);
+    });
+
+    document.getElementById('drawingBtn').addEventListener('click', toggleDrawingMode);
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${src}"]`)) return resolve();
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+    });
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    initDrawingCanvas();
+    initDrawingToolbar();
+});</script>
 {% endblock %}

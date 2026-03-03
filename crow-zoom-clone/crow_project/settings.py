@@ -8,8 +8,11 @@ SECRET_KEY = "your-django-secret-key-here"
 GROQ_API_KEY = ""
 
 DEBUG = True
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.ngrok-free.dev']
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.ngrok-free.dev',
+    'http://*.ngrok-free.dev',
+]
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',

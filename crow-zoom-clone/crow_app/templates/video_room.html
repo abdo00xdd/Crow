@@ -4,1312 +4,196 @@
 
 {% block extra_css %}
 <style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-
-    body {
-        overflow: hidden;
-        background: #000;
-    }
-
+    body { margin: 0; overflow: hidden; background: #000; }
+    
     .video-room {
-        position: fixed;
-        top: 0;
-        left: 0;
         width: 100vw;
         height: 100vh;
-        background: #1a1a1a;
         display: flex;
         flex-direction: column;
+        background: #1a1a1a;
     }
-
-    /* Video Grid */
-    .video-grid {
-        flex: 1;
-        display: grid;
-        gap: 8px;
-        padding: 8px;
-        position: relative;
-        overflow: hidden;
-    }
-
-    /* Dynamic grid layouts */
-    .video-grid.participants-1 { grid-template-columns: 1fr; }
-    .video-grid.participants-2 { grid-template-columns: repeat(2, 1fr); }
-    .video-grid.participants-3,
-    .video-grid.participants-4 { 
-        grid-template-columns: repeat(2, 1fr);
-        grid-template-rows: repeat(2, 1fr);
-    }
-    .video-grid.participants-5,
-    .video-grid.participants-6 { 
-        grid-template-columns: repeat(3, 1fr);
-        grid-template-rows: repeat(2, 1fr);
-    }
-    .video-grid.participants-7,
-    .video-grid.participants-8,
-    .video-grid.participants-9 { 
-        grid-template-columns: repeat(3, 1fr);
-        grid-template-rows: repeat(3, 1fr);
-    }
-
-    /* Video Container */
-    .video-container {
-        position: relative;
-        background: #000;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
-
-    .video-container video {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .video-container.local video {
-        transform: scaleX(-1);
-    }
-
-    .video-info {
-        position: absolute;
-        bottom: 12px;
-        left: 12px;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 6px 12px;
-        border-radius: 20px;
-        color: white;
-        font-size: 14px;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .status-indicator {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #10b981;
-    }
-
-    .video-info.muted .status-indicator {
-        background: #ef4444;
-    }
-
-    /* Control Bar */
-    .control-bar {
-        background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.7));
-        padding: 20px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 16px;
-    }
-
-    .control-btn {
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
-        border: none;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 20px;
-        transition: all 0.2s;
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
-    }
-
-    .control-btn:hover {
-        background: rgba(255, 255, 255, 0.2);
-        transform: scale(1.1);
-    }
-
-    .control-btn.active {
-        background: #2563eb;
-    }
-
-    .control-btn.danger {
-        background: #dc2626;
-    }
-
-    .control-btn.danger:hover {
-        background: #b91c1c;
-    }
-
-    /* Room Header */
+    
     .room-header {
         position: absolute;
         top: 20px;
         left: 20px;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 12px 20px;
+        background: rgba(0,0,0,0.8);
+        padding: 16px 24px;
         border-radius: 12px;
         color: white;
         z-index: 10;
     }
-
-    .room-header h2 {
-        font-size: 18px;
-        margin-bottom: 4px;
+    
+    #videoGrid {
+        flex: 1;
+        display: grid;
+        gap: 10px;
+        padding: 10px;
     }
-
-    .participant-count {
-        font-size: 14px;
-        color: #9ca3af;
-    }
-
-    /* Loading */
-    .loading-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.9);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        z-index: 100;
-    }
-
-    .loading-overlay.hidden {
-        display: none;
-    }
-
-    .spinner {
-        width: 50px;
-        height: 50px;
-        border: 4px solid rgba(255, 255, 255, 0.1);
-        border-top-color: #2563eb;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin-bottom: 20px;
-    }
-
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-
-    /* Toast */
-    .toast {
-        position: fixed;
-        bottom: 100px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.9);
-        color: white;
-        padding: 12px 24px;
-        border-radius: 8px;
-        z-index: 1000;
-        animation: slideUp 0.3s ease-out;
-    }
-
-    @keyframes slideUp {
-        from {
-            opacity: 0;
-            transform: translateX(-50%) translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-        .control-btn {
-            width: 48px;
-            height: 48px;
-            font-size: 18px;
-        }
-    }
-
-    /* ─── Drawing Feature ─────────────────────────────────────────── */
-    #drawingCanvas {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        pointer-events: none;
-        z-index: 50;
-    }
-
-    /* Hidden video feed for MediaPipe hand detection */
-    #drawingHiddenVideo {
-        position: fixed;
-        bottom: -9999px;
-        left: -9999px;
-        width: 640px;
-        height: 480px;
-        opacity: 0;
-        pointer-events: none;
-    }
-
-    /* Drawing Toolbar */
-    #drawingToolbar {
-        position: fixed;
-        top: 50%;
-        right: 20px;
-        transform: translateY(-50%) translateX(100px);
-        background: rgba(15, 15, 20, 0.92);
-        border: 1px solid rgba(0, 212, 255, 0.2);
-        border-radius: 16px;
-        padding: 16px 12px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 14px;
-        z-index: 60;
-        backdrop-filter: blur(12px);
-        box-shadow: 0 0 24px rgba(0, 212, 255, 0.1);
-        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        opacity: 0;
-        pointer-events: none;
-    }
-
-    #drawingToolbar.visible {
-        transform: translateY(-50%) translateX(0);
-        opacity: 1;
-        pointer-events: all;
-    }
-
-    .draw-toolbar-label {
-        font-size: 10px;
-        color: rgba(255,255,255,0.4);
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-family: monospace;
-    }
-
-    .draw-tool-btn {
-        width: 40px;
-        height: 40px;
-        border-radius: 10px;
-        border: 1px solid rgba(255,255,255,0.1);
-        background: rgba(255,255,255,0.05);
-        color: rgba(255,255,255,0.7);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 16px;
-        transition: all 0.2s;
-    }
-
-    .draw-tool-btn:hover {
-        background: rgba(255,255,255,0.12);
-        color: white;
-    }
-
-    .draw-tool-btn.active {
-        background: rgba(0, 212, 255, 0.2);
-        border-color: rgba(0, 212, 255, 0.6);
-        color: #00d4ff;
-        box-shadow: 0 0 12px rgba(0, 212, 255, 0.2);
-    }
-
-    #drawColorPicker {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        border: 2px solid rgba(255,255,255,0.2);
-        background: none;
-        cursor: pointer;
-        padding: 2px;
+    
+    .video-container {
+        background: #000;
+        border-radius: 12px;
         overflow: hidden;
+        position: relative;
     }
-
-    #drawColorPicker::-webkit-color-swatch-wrapper { padding: 0; }
-    #drawColorPicker::-webkit-color-swatch { border-radius: 50%; border: none; }
-
-    .draw-size-row {
+    
+    .control-bar {
+        background: rgba(0,0,0,0.9);
+        padding: 24px;
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-        width: 100%;
-    }
-
-    #drawBrushSize {
-        -webkit-appearance: none;
-        width: 80px;
-        height: 4px;
-        border-radius: 2px;
-        background: rgba(255,255,255,0.15);
-        outline: none;
-        cursor: pointer;
-    }
-
-    #drawBrushSize::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        background: #00d4ff;
-        cursor: pointer;
-        box-shadow: 0 0 6px rgba(0, 212, 255, 0.5);
-    }
-
-    .toolbar-divider {
-        width: 32px;
-        height: 1px;
-        background: rgba(255,255,255,0.1);
-    }
-
-    #drawClearBtn {
-        width: 40px;
-        height: 40px;
-        border-radius: 10px;
-        border: 1px solid rgba(239, 68, 68, 0.3);
-        background: rgba(239, 68, 68, 0.1);
-        color: #ef4444;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
         justify-content: center;
-        font-size: 14px;
-        transition: all 0.2s;
+        gap: 16px;
     }
-
-    #drawClearBtn:hover {
-        background: rgba(239, 68, 68, 0.25);
-        border-color: rgba(239, 68, 68, 0.6);
+    
+    .control-btn {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(255,255,255,0.1);
+        color: white;
+        font-size: 20px;
+        cursor: pointer;
     }
-
-    /* Drawing button glow when active */
-    #drawingBtn.active {
-        background: rgba(0, 212, 255, 0.25);
-        border: 1px solid rgba(0, 212, 255, 0.5);
-        box-shadow: 0 0 16px rgba(0, 212, 255, 0.3);
-        color: #00d4ff;
-    }
+    
+    .control-btn:hover { background: rgba(255,255,255,0.2); }
+    .control-btn.active { background: #2563eb; }
+    .control-btn.danger { background: #dc2626; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="video-room">
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
-        <p>Connecting to room...</p>
-    </div>
-
-    <!-- Room Header -->
     <div class="room-header">
         <h2>{{ room.name }}</h2>
-        <div class="participant-count">
-            <i class="fas fa-users"></i> <span id="participantCount">{{ participants.count }}</span> participant(s)
-        </div>
+        <p><span id="count">1</span> participant(s)</p>
     </div>
-
-    <!-- Video Grid -->
-    <div class="video-grid participants-1" id="videoGrid">
-        <!-- Videos will be added here dynamically -->
-    </div>
-
-    <!-- Control Bar -->
+    
+    <div id="videoGrid"></div>
+    
     <div class="control-bar">
-        <button class="control-btn active" id="toggleVideo" title="Toggle Camera">
-            <i class="fas fa-video"></i>
-        </button>
-        
-        <button class="control-btn active" id="toggleAudio" title="Toggle Microphone">
-            <i class="fas fa-microphone"></i>
-        </button>
-        
-        <button class="control-btn" id="shareScreen" title="Share Screen">
-            <i class="fas fa-desktop"></i>
-        </button>
-        
-        <button class="control-btn danger" id="leaveRoom" title="Leave Room">
-            <i class="fas fa-phone-slash"></i>
-        </button>
-        <button class="control-btn" id="fullscreenBtn" title="Fullscreen">
-    <i class="fas fa-expand"></i>
-</button>
-
-        <!-- ✏️ Drawing Toggle Button -->
-        <button class="control-btn" id="drawingBtn" title="Toggle Drawing Mode">
-            <i class="fas fa-pen"></i>
-        </button>
+        <button class="control-btn active" id="videoBtn" onclick="toggleVideo()">📹</button>
+        <button class="control-btn active" id="audioBtn" onclick="toggleAudio()">🎤</button>
+        <button class="control-btn" id="screenBtn" onclick="shareScreen()">🖥️</button>
+        <button class="control-btn danger" onclick="leave()">📞</button>
     </div>
 </div>
 
-<!-- ✏️ Drawing Canvas Overlay -->
-<canvas id="drawingCanvas"></canvas>
-
-<!-- ✏️ Hidden video feed for MediaPipe hand tracking -->
-<video id="drawingHiddenVideo" playsinline autoplay muted></video>
-
-<!-- ✏️ Drawing Toolbar -->
-<div id="drawingToolbar">
-    <span class="draw-toolbar-label">Tools</span>
-
-    <button class="draw-tool-btn active" id="drawToolPen" title="Pen">
-        <i class="fas fa-pen"></i>
-    </button>
-    <button class="draw-tool-btn" id="drawToolEraser" title="Eraser">
-        <i class="fas fa-eraser"></i>
-    </button>
-
-    <div class="toolbar-divider"></div>
-    <span class="draw-toolbar-label">Color</span>
-    <input type="color" id="drawColorPicker" value="#00d4ff" title="Pick Color">
-
-    <div class="toolbar-divider"></div>
-    <div class="draw-size-row">
-        <span class="draw-toolbar-label">Size: <span id="brushSizeLabel">4</span></span>
-        <input type="range" id="drawBrushSize" min="1" max="20" value="4">
-    </div>
-
-    <div class="toolbar-divider"></div>
-    <button id="drawClearBtn" title="Clear Canvas">
-        <i class="fas fa-trash"></i>
-    </button>
-</div>
-{% endblock %}
-
-{% block extra_js %}
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.19.1.js"></script>
 <script>
-// WebRTC Configuration
-const configuration = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-    ]
-};
+// CHANGE THIS TO YOUR AGORA APP ID
+const APP_ID = 'c0943531bf7f4a0e919bce9c56d3aed1';
 
-// Global State
-let localStream = null;
-let peers = {};
-let isVideoEnabled = true;
-let isAudioEnabled = true;
-let ws = null;
+const CHANNEL = '{{ room_id }}';
+const UID = {{ user.id }};
 
-// Room Info
-const roomId = '{{ room_id }}';
-const username = '{{ user.username }}';
-const userId = '{{ user.id }}';
+let client = AgoraRTC.createClient({mode: 'rtc', codec: 'vp8'});
+let localVideo = null;
+let localAudio = null;
+let videoOn = true;
+let audioOn = true;
 
-console.log('🔵 Initializing video room:', { roomId, username, userId });
+// Join channel
+async function join() {
+    await client.join(APP_ID, CHANNEL, null, UID);
+    
+    localVideo = await AgoraRTC.createCameraVideoTrack();
+    localAudio = await AgoraRTC.createMicrophoneAudioTrack();
+    
+    await client.publish([localVideo, localAudio]);
+    
+    // Show local video
+    const div = document.createElement('div');
+    div.className = 'video-container';
+    div.id = 'local';
+    document.getElementById('videoGrid').appendChild(div);
+    localVideo.play(div);
+    
+    updateGrid();
+}
 
-// DOM Elements
-const videoGrid = document.getElementById('videoGrid');
-const loadingOverlay = document.getElementById('loadingOverlay');
-const participantCount = document.getElementById('participantCount');
-const toggleVideoBtn = document.getElementById('toggleVideo');
-const toggleAudioBtn = document.getElementById('toggleAudio');
-const shareScreenBtn = document.getElementById('shareScreen');
-const leaveRoomBtn = document.getElementById('leaveRoom');
+// Handle remote users
+client.on('user-published', async (user, mediaType) => {
+    await client.subscribe(user, mediaType);
+    
+    if (mediaType === 'video') {
+        let div = document.getElementById('remote-' + user.uid);
+        if (!div) {
+            div = document.createElement('div');
+            div.className = 'video-container';
+            div.id = 'remote-' + user.uid;
+            document.getElementById('videoGrid').appendChild(div);
+        }
+        user.videoTrack.play(div);
+        updateGrid();
+    }
+    
+    if (mediaType === 'audio') {
+        user.audioTrack.play();
+    }
+});
 
-// Initialize
-document.addEventListener('DOMContentLoaded', async () => {
+client.on('user-unpublished', (user) => {
+    const div = document.getElementById('remote-' + user.uid);
+    if (div) div.remove();
+    updateGrid();
+});
+
+function updateGrid() {
+    const count = document.querySelectorAll('.video-container').length;
+    document.getElementById('count').textContent = count;
+    
+    const grid = document.getElementById('videoGrid');
+    if (count === 1) grid.style.gridTemplateColumns = '1fr';
+    else if (count === 2) grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    else grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+}
+
+async function toggleVideo() {
+    videoOn = !videoOn;
+    await localVideo.setEnabled(videoOn);
+    document.getElementById('videoBtn').classList.toggle('active', videoOn);
+}
+
+async function toggleAudio() {
+    audioOn = !audioOn;
+    await localAudio.setEnabled(audioOn);
+    document.getElementById('audioBtn').classList.toggle('active', audioOn);
+}
+
+async function shareScreen() {
     try {
-        console.log('🟢 DOM loaded, initializing media...');
-        await initializeMedia();
-        connectWebSocket();
-        setupEventListeners();
-        loadingOverlay.classList.add('hidden');
-        console.log('✅ Initialization complete');
-    } catch (error) {
-        console.error('❌ Initialization error:', error);
-        showToast('Failed to initialize: ' + error.message);
-        setTimeout(() => {
-            window.location.href = '/';
-        }, 3000);
-    }
-});
-
-// Initialize Media
-async function initializeMedia() {
-    try {
-        console.log('🎥 Requesting camera/microphone access...');
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-            }
+        const screen = await AgoraRTC.createScreenVideoTrack();
+        await client.unpublish([localVideo]);
+        await client.publish([screen]);
+        
+        const div = document.getElementById('local');
+        div.innerHTML = '';
+        screen.play(div);
+        
+        screen.on('track-ended', async () => {
+            await client.unpublish([screen]);
+            await client.publish([localVideo]);
+            div.innerHTML = '';
+            localVideo.play(div);
         });
-        console.log('✅ Media access granted:', localStream.getTracks().map(t => t.kind).join(', '));
-
-        addVideoStream(localStream, userId, username, true);
-        showToast('Camera and microphone connected');
-    } catch (error) {
-        console.error('❌ Media error:', error);
-        throw new Error('Could not access camera/microphone. Please grant permissions.');
+    } catch (e) {
+        alert('Screen share failed: ' + e.message);
     }
 }
 
-// Add Video Stream
-function addVideoStream(stream, peerId, peerName, isLocal = false) {
-    console.log(`📹 Adding video stream for ${isLocal ? 'self' : peerName} (${peerId})`);
-    
-    // Remove existing video for this peer
-    const existing = document.getElementById(`video-${peerId}`);
-    if (existing) {
-        existing.remove();
-    }
-
-    const videoContainer = document.createElement('div');
-    videoContainer.className = 'video-container' + (isLocal ? ' local' : '');
-    videoContainer.id = `video-${peerId}`;
-
-    const video = document.createElement('video');
-    video.srcObject = stream;
-    video.autoplay = true;
-    video.playsInline = true;
-    if (isLocal) {
-        video.muted = true;
-    }
-
-    const info = document.createElement('div');
-    info.className = 'video-info';
-    info.innerHTML = `
-        <span class="status-indicator"></span>
-        <span>${isLocal ? 'You' : peerName}</span>
-    `;
-
-    videoContainer.appendChild(video);
-    videoContainer.appendChild(info);
-    videoGrid.appendChild(videoContainer);
-
-    updateGridLayout();
-}
-
-// Remove Video Stream
-function removeVideoStream(peerId) {
-    console.log(`🗑️ Removing video stream for peer ${peerId}`);
-    const videoElement = document.getElementById(`video-${peerId}`);
-    if (videoElement) {
-        videoElement.remove();
-        updateGridLayout();
+async function leave() {
+    if (confirm('Leave call?')) {
+        localVideo.close();
+        localAudio.close();
+        await client.leave();
+        window.location.href = '/';
     }
 }
 
-// Update Grid Layout
-function updateGridLayout() {
-    const videoContainers = videoGrid.querySelectorAll('.video-container');
-    const count = videoContainers.length;
-    
-    participantCount.textContent = count;
-    
-    videoGrid.className = 'video-grid';
-    videoGrid.classList.add(`participants-${Math.min(count, 9)}`);
-    console.log(`📊 Grid updated: ${count} participant(s)`);
-}
-
-// WebSocket Connection
-function connectWebSocket() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/video/${roomId}/`;
-    
-    console.log('🔌 Connecting to WebSocket:', wsUrl);
-    ws = new WebSocket(wsUrl);
-    
-    ws.onopen = () => {
-        console.log('✅ WebSocket connected');
-        showToast('Connected to room');
-        
-        // Announce presence
-        console.log('📤 Sending join signal');
-        sendSignal({
-            type: 'join',
-            userId: userId,
-            username: username
-        });
-    };
-    
-    ws.onmessage = async (event) => {
-        const data = JSON.parse(event.data);
-        console.log('📩 Received:', data);
-        
-        switch(data.type) {
-            case 'user-joined':
-                handleUserJoined(data);
-                break;
-            case 'user-left':
-                handleUserLeft(data);
-                break;
-            case 'offer':
-                await handleOffer(data);
-                break;
-            case 'answer':
-                await handleAnswer(data);
-                break;
-            case 'ice-candidate':
-                await handleIceCandidate(data);
-                break;
-            case 'draw':                          // ✏️ Drawing sync
-                handleDrawMessage(data.data);
-                break;
-            default:
-                console.log('Unknown message type:', data.type);
-        }
-    };
-    
-    ws.onclose = (event) => {
-        console.log('❌ WebSocket disconnected:', event.code, event.reason);
-        showToast('Disconnected from room');
-    };
-    
-    ws.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
-    };
-}
-
-// Send Signal
-function sendSignal(data) {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        console.log('📤 Sending:', data);
-        ws.send(JSON.stringify(data));
-    } else {
-        console.warn('⚠️ WebSocket not open, cannot send:', data);
-    }
-}
-
-// Handle User Joined
-async function handleUserJoined(data) {
-    if (data.userId === userId) return;
-    
-    console.log('👋 User joined:', data.username, data.userId);
-    showToast(`${data.username} joined`);
-    
-    // Create peer connection and send offer
-    console.log('🔧 Creating peer connection for:', data.userId);
-    const peerConnection = createPeerConnection(data.userId, data.username);
-    peers[data.userId] = peerConnection;
-    
-    // Add local stream
-    localStream.getTracks().forEach(track => {
-        console.log(`➕ Adding ${track.kind} track to peer connection`);
-        peerConnection.addTrack(track, localStream);
-    });
-    
-    // Create and send offer
-    console.log('📤 Creating offer for:', data.userId);
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    console.log('✅ Local description set (offer)');
-    
-    sendSignal({
-        type: 'offer',
-        target: data.userId,
-        offer: offer
-    });
-}
-
-// Handle User Left
-function handleUserLeft(data) {
-    if (data.userId === userId) return;
-    
-    console.log('👋 User left:', data.username);
-    showToast(`${data.username} left`);
-    
-    // Close peer connection
-    if (peers[data.userId]) {
-        console.log('🔌 Closing peer connection for:', data.userId);
-        peers[data.userId].close();
-        delete peers[data.userId];
-    }
-    
-    // Remove video
-    removeVideoStream(data.userId);
-}
-
-// Handle Offer
-async function handleOffer(data) {
-    console.log('📨 Received offer from:', data.sender, data.senderName);
-    
-    // Create peer connection
-    console.log('🔧 Creating peer connection for:', data.sender);
-    const peerConnection = createPeerConnection(data.sender, data.senderName || 'User');
-    peers[data.sender] = peerConnection;
-    
-    // Add local stream
-    localStream.getTracks().forEach(track => {
-        console.log(`➕ Adding ${track.kind} track to peer connection`);
-        peerConnection.addTrack(track, localStream);
-    });
-    
-    // Set remote description
-    console.log('📥 Setting remote description (offer)');
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-    
-    // Create and send answer
-    console.log('📤 Creating answer');
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    console.log('✅ Local description set (answer)');
-    
-    sendSignal({
-        type: 'answer',
-        target: data.sender,
-        answer: answer
-    });
-}
-
-// Handle Answer
-async function handleAnswer(data) {
-    console.log('📨 Received answer from:', data.sender);
-    
-    const peerConnection = peers[data.sender];
-    if (peerConnection) {
-        console.log('📥 Setting remote description (answer)');
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-        console.log('✅ Remote description set');
-    } else {
-        console.warn('⚠️ No peer connection found for:', data.sender);
-    }
-}
-
-// Handle ICE Candidate
-async function handleIceCandidate(data) {
-    console.log('🧊 Received ICE candidate from:', data.sender);
-    
-    const peerConnection = peers[data.sender];
-    if (peerConnection && data.candidate) {
-        console.log('➕ Adding ICE candidate');
-        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-    }
-}
-
-// Create Peer Connection
-function createPeerConnection(peerId, peerName) {
-    console.log('🔨 Creating new RTCPeerConnection for:', peerId);
-    const peerConnection = new RTCPeerConnection(configuration);
-    
-    // Handle ICE candidates
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            console.log('🧊 ICE candidate generated for:', peerId);
-            sendSignal({
-                type: 'ice-candidate',
-                target: peerId,
-                candidate: event.candidate
-            });
-        }
-    };
-    
-    // Handle connection state changes
-    peerConnection.onconnectionstatechange = () => {
-        console.log(`🔌 Connection state for ${peerId}: ${peerConnection.connectionState}`);
-    };
-    
-    peerConnection.oniceconnectionstatechange = () => {
-        console.log(`🧊 ICE connection state for ${peerId}: ${peerConnection.iceConnectionState}`);
-    };
-    
-    // Handle incoming tracks
-    peerConnection.ontrack = (event) => {
-        console.log('🎥 Received track from:', peerId, event.track.kind);
-        console.log('Streams:', event.streams.length);
-        if (event.streams[0]) {
-            addVideoStream(event.streams[0], peerId, peerName, false);
-        }
-    };
-    
-    return peerConnection;
-}
-
-// Control Functions
-toggleVideoBtn.addEventListener('click', () => {
-    isVideoEnabled = !isVideoEnabled;
-    localStream.getVideoTracks().forEach(track => {
-        track.enabled = isVideoEnabled;
-    });
-    
-    toggleVideoBtn.classList.toggle('active');
-    toggleVideoBtn.innerHTML = isVideoEnabled 
-        ? '<i class="fas fa-video"></i>' 
-        : '<i class="fas fa-video-slash"></i>';
-    
-    showToast(isVideoEnabled ? 'Camera on' : 'Camera off');
-});
-
-toggleAudioBtn.addEventListener('click', () => {
-    isAudioEnabled = !isAudioEnabled;
-    localStream.getAudioTracks().forEach(track => {
-        track.enabled = isAudioEnabled;
-    });
-    
-    toggleAudioBtn.classList.toggle('active');
-    toggleAudioBtn.innerHTML = isAudioEnabled 
-        ? '<i class="fas fa-microphone"></i>' 
-        : '<i class="fas fa-microphone-slash"></i>';
-    
-    const localVideoInfo = document.querySelector('#video-' + userId + ' .video-info');
-    if (localVideoInfo) {
-        localVideoInfo.classList.toggle('muted', !isAudioEnabled);
-    }
-    
-    showToast(isAudioEnabled ? 'Microphone on' : 'Microphone off');
-});
-
-shareScreenBtn.addEventListener('click', async () => {
-    try {
-        console.log('🖥️ Starting screen share');
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { cursor: 'always' },
-            audio: false
-        });
-
-        const screenTrack = screenStream.getVideoTracks()[0];
-        
-        // Replace video track in all peer connections
-        Object.values(peers).forEach(peerConnection => {
-            const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-            if (sender) {
-                sender.replaceTrack(screenTrack);
-            }
-        });
-        
-        // Update local video
-        const localVideo = document.querySelector('#video-' + userId + ' video');
-        if (localVideo) {
-            const oldTrack = localStream.getVideoTracks()[0];
-            localStream.removeTrack(oldTrack);
-            localStream.addTrack(screenTrack);
-            localVideo.srcObject = localStream;
-        }
-
-        // Handle when screen sharing stops
-        screenTrack.addEventListener('ended', () => {
-            console.log('🖥️ Screen share ended');
-            stopScreenShare();
-        });
-
-        shareScreenBtn.classList.add('active');
-        showToast('Screen sharing started');
-        
-    } catch (error) {
-        console.error('❌ Screen share error:', error);
-        showToast('Could not share screen');
-    }
-});
-
-async function stopScreenShare() {
-    try {
-        console.log('🔄 Stopping screen share, returning to camera');
-        const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        const videoTrack = newStream.getVideoTracks()[0];
-        
-        // Replace in peer connections
-        Object.values(peers).forEach(peerConnection => {
-            const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-            if (sender) {
-                sender.replaceTrack(videoTrack);
-            }
-        });
-        
-        // Update local video
-        const localVideo = document.querySelector('#video-' + userId + ' video');
-        if (localVideo) {
-            const oldTrack = localStream.getVideoTracks()[0];
-            localStream.removeTrack(oldTrack);
-            localStream.addTrack(videoTrack);
-            localVideo.srcObject = localStream;
-        }
-
-        shareScreenBtn.classList.remove('active');
-        showToast('Screen sharing stopped');
-    } catch (error) {
-        console.error('❌ Error stopping screen share:', error);
-    }
-}
-
-leaveRoomBtn.addEventListener('click', () => {
-    if (confirm('Are you sure you want to leave this call?')) {
-        leaveRoom();
-    }
-});
-
-function leaveRoom() {
-    console.log('👋 Leaving room');
-    // Stop all tracks
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-    }
-
-    // Close all peer connections
-    Object.values(peers).forEach(peer => {
-        peer.close();
-    });
-
-    // Close WebSocket
-    if (ws) {
-        ws.close();
-    }
-
-    // Redirect
-    window.location.href = '/leave-meeting/{{ room_id }}/';
-}
-
-function setupEventListeners() {
-    window.addEventListener('beforeunload', () => {
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
-    });
-}
-
-function showToast(message) {
-    console.log('📢 Toast:', message);
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.textContent = message;
-    document.body.appendChild(toast);
-
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
-}
-// Fullscreen functionality
-const fullscreenBtn = document.getElementById('fullscreenBtn');
-const header = document.querySelector('.header');
-const footer = document.querySelector('.footer');
-
-function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-        // Enter fullscreen
-        document.documentElement.requestFullscreen();
-        fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
-        if (header) header.style.display = 'none';
-        if (footer) footer.style.display = 'none';
-    } else {
-        // Exit fullscreen
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-            fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
-            if (header) header.style.display = '';   // restore default display
-            if (footer) footer.style.display = '';
-        }
-    }
-}
-
-fullscreenBtn.addEventListener('click', toggleFullscreen);
-
-// Listen for fullscreen changes (e.g., pressing Esc)
-document.addEventListener('fullscreenchange', () => {
-    if (document.fullscreenElement) {
-        fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
-        if (header) header.style.display = 'none';
-        if (footer) footer.style.display = 'none';
-    } else {
-        fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
-        if (header) header.style.display = '';
-        if (footer) footer.style.display = '';
-    }
-});
+// Auto join
+join().catch(e => alert('Failed to join: ' + e.message));
 </script>
-
-<!-- ✏️ Drawing Feature -->
-<script >// ✏️ drawing.js - Finger Drawing Feature for Crow Video Room
-// Uses MediaPipe Hands for finger tracking + WebSocket for real-time sync
-
-// ─── State ───────────────────────────────────────────────────────────────────
-const drawingState = {
-    enabled: false,
-    isDrawing: false,
-    tool: 'pen',       // 'pen' | 'eraser'
-    color: '#00d4ff',
-    brushSize: 4,
-    lastX: null,
-    lastY: null,
-    hands: null,
-    camera: null,
-    animationId: null,
-    hiddenVideo: null,
-};
-
-// ─── Canvas Setup ─────────────────────────────────────────────────────────────
-let drawCanvas, drawCtx;
-
-function initDrawingCanvas() {
-    drawCanvas = document.getElementById('drawingCanvas');
-    if (!drawCanvas) return;
-    drawCtx = drawCanvas.getContext('2d');
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-}
-
-function resizeCanvas() {
-    if (!drawCanvas) return;
-    drawCanvas.width = window.innerWidth;
-    drawCanvas.height = window.innerHeight;
-}
-
-// ─── MediaPipe Setup ──────────────────────────────────────────────────────────
-async function initMediaPipe() {
-    // Load MediaPipe from CDN
-    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js');
-    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js');
-
-    drawingState.hiddenVideo = document.getElementById('drawingHiddenVideo');
-
-    drawingState.hands = new Hands({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
-    });
-
-    drawingState.hands.setOptions({
-        maxNumHands: 1,
-        modelComplexity: 1,
-        minDetectionConfidence: 0.7,
-        minTrackingConfidence: 0.7,
-    });
-
-    drawingState.hands.onResults(onHandResults);
-
-    drawingState.camera = new Camera(drawingState.hiddenVideo, {
-        onFrame: async () => {
-            if (drawingState.enabled) {
-                await drawingState.hands.send({ image: drawingState.hiddenVideo });
-            }
-        },
-        width: 640,
-        height: 480
-    });
-
-    await drawingState.camera.start();
-}
-
-// ─── Hand Detection Results ───────────────────────────────────────────────────
-function onHandResults(results) {
-    if (!drawingState.enabled || !results.multiHandLandmarks?.length) {
-        drawingState.isDrawing = false;
-        drawingState.lastX = null;
-        drawingState.lastY = null;
-        hideCursor();
-        return;
-    }
-
-    const landmarks = results.multiHandLandmarks[0];
-
-    // Index fingertip = landmark 8
-    // Middle fingertip = landmark 12
-    const indexTip = landmarks[8];
-    const middleTip = landmarks[12];
-    const indexMcp = landmarks[5];  // Index base
-
-    // Mirror X because camera is mirrored
-    const x = (1 - indexTip.x) * window.innerWidth;
-    const y = indexTip.y * window.innerHeight;
-
-    // Gesture: index UP + middle DOWN = draw
-    // (index tip above its base, middle tip below index tip = drawing mode)
-    const indexUp = indexTip.y < indexMcp.y - 0.05;
-    const middleDown = middleTip.y > indexTip.y + 0.03;
-    const shouldDraw = indexUp && middleDown;
-
-    // Show live cursor dot
-    showCursor(x, y, shouldDraw);
-
-    if (shouldDraw) {
-        if (drawingState.lastX !== null) {
-            drawLine(
-                drawingState.lastX,
-                drawingState.lastY,
-                x, y,
-                drawingState.color,
-                drawingState.brushSize,
-                drawingState.tool,
-                true // broadcast
-            );
-        }
-        drawingState.lastX = x;
-        drawingState.lastY = y;
-        drawingState.isDrawing = true;
-    } else {
-        drawingState.lastX = null;
-        drawingState.lastY = null;
-        drawingState.isDrawing = false;
-    }
-}
-
-// ─── Drawing Functions ────────────────────────────────────────────────────────
-function drawLine(x1, y1, x2, y2, color, size, tool, broadcast = false) {
-    if (!drawCtx) return;
-
-    drawCtx.save();
-    drawCtx.beginPath();
-    drawCtx.moveTo(x1, y1);
-    drawCtx.lineTo(x2, y2);
-    drawCtx.strokeStyle = tool === 'eraser' ? 'rgba(0,0,0,1)' : color;
-    drawCtx.lineWidth = tool === 'eraser' ? size * 6 : size;
-    drawCtx.lineCap = 'round';
-    drawCtx.lineJoin = 'round';
-
-    if (tool === 'eraser') {
-        drawCtx.globalCompositeOperation = 'destination-out';
-    } else {
-        drawCtx.globalCompositeOperation = 'source-over';
-        // Glow effect
-        drawCtx.shadowBlur = 8;
-        drawCtx.shadowColor = color;
-    }
-
-    drawCtx.stroke();
-    drawCtx.restore();
-
-    if (broadcast) {
-        broadcastDraw({ x1, y1, x2, y2, color, size, tool });
-    }
-}
-
-function clearCanvas(broadcast = false) {
-    if (drawCtx) {
-        drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-    }
-    if (broadcast) {
-        broadcastDraw({ action: 'clear' });
-    }
-}
-
-// ─── Cursor Indicator ─────────────────────────────────────────────────────────
-function showCursor(x, y, active) {
-    let cursor = document.getElementById('drawCursor');
-    if (!cursor) {
-        cursor = document.createElement('div');
-        cursor.id = 'drawCursor';
-        cursor.style.cssText = `
-            position: fixed;
-            pointer-events: none;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: width 0.1s, height 0.1s;
-            z-index: 9999;
-        `;
-        document.body.appendChild(cursor);
-    }
-
-    const size = drawingState.tool === 'eraser' ? drawingState.brushSize * 6 : drawingState.brushSize * 2 + 8;
-    cursor.style.left = x + 'px';
-    cursor.style.top = y + 'px';
-    cursor.style.width = size + 'px';
-    cursor.style.height = size + 'px';
-    cursor.style.background = active
-        ? (drawingState.tool === 'eraser' ? 'rgba(255,255,255,0.3)' : drawingState.color + '80')
-        : 'transparent';
-    cursor.style.border = `2px solid ${drawingState.tool === 'eraser' ? '#fff' : drawingState.color}`;
-    cursor.style.display = 'block';
-}
-
-function hideCursor() {
-    const cursor = document.getElementById('drawCursor');
-    if (cursor) cursor.style.display = 'none';
-}
-
-// ─── WebSocket Broadcast ──────────────────────────────────────────────────────
-function broadcastDraw(data) {
-    if (typeof sendSignal === 'function') {
-        sendSignal({ type: 'draw', data });
-    }
-}
-
-// Call this from the main WS onmessage handler
-function handleDrawMessage(data) {
-    if (data.action === 'clear') {
-        clearCanvas(false);
-        return;
-    }
-    const { x1, y1, x2, y2, color, size, tool } = data;
-    drawLine(x1, y1, x2, y2, color, size, tool, false);
-}
-
-// ─── Toggle Drawing Mode ──────────────────────────────────────────────────────
-async function toggleDrawingMode() {
-    drawingState.enabled = !drawingState.enabled;
-    const btn = document.getElementById('drawingBtn');
-    const toolbar = document.getElementById('drawingToolbar');
-
-    if (drawingState.enabled) {
-        // First time: init mediapipe
-        if (!drawingState.hands) {
-            showToast('Loading hand tracking...');
-            try {
-                await initMediaPipe();
-                showToast('✋ Hand tracking ready! Point your index finger to draw');
-            } catch (e) {
-                console.error('MediaPipe init failed:', e);
-                showToast('Could not start hand tracking');
-                drawingState.enabled = false;
-                return;
-            }
-        }
-
-        btn.classList.add('active');
-        toolbar.classList.add('visible');
-        drawCanvas.style.pointerEvents = 'none';
-        showToast('✏️ Drawing mode ON — index finger up to draw, pinch off to pause');
-    } else {
-        btn.classList.remove('active');
-        toolbar.classList.remove('visible');
-        hideCursor();
-        drawingState.lastX = null;
-        drawingState.lastY = null;
-        showToast('Drawing mode OFF');
-    }
-}
-
-// ─── Toolbar Controls ─────────────────────────────────────────────────────────
-function initDrawingToolbar() {
-    document.getElementById('drawColorPicker').addEventListener('input', (e) => {
-        drawingState.color = e.target.value;
-    });
-
-    document.getElementById('drawBrushSize').addEventListener('input', (e) => {
-        drawingState.brushSize = parseInt(e.target.value);
-        document.getElementById('brushSizeLabel').textContent = e.target.value;
-    });
-
-    document.getElementById('drawToolPen').addEventListener('click', () => {
-        drawingState.tool = 'pen';
-        document.getElementById('drawToolPen').classList.add('active');
-        document.getElementById('drawToolEraser').classList.remove('active');
-    });
-
-    document.getElementById('drawToolEraser').addEventListener('click', () => {
-        drawingState.tool = 'eraser';
-        document.getElementById('drawToolEraser').classList.add('active');
-        document.getElementById('drawToolPen').classList.remove('active');
-    });
-
-    document.getElementById('drawClearBtn').addEventListener('click', () => {
-        clearCanvas(true);
-    });
-
-    document.getElementById('drawingBtn').addEventListener('click', toggleDrawingMode);
-}
-
-// ─── Utilities ────────────────────────────────────────────────────────────────
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        if (document.querySelector(`script[src="${src}"]`)) return resolve();
-        const s = document.createElement('script');
-        s.src = src;
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-    });
-}
-
-// ─── Boot ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-    initDrawingCanvas();
-    initDrawingToolbar();
-});</script>
 {% endblock %}
